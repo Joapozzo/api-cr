@@ -30,27 +30,41 @@ const io = new Server(server, {
 });
 
 // Middlewares
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
+        }
+    }
+}));
+
 app.use(cookieParser());
 app.use(express.json());
+// app.use(cors({
+//     origin: (origin, callback) => {
+//         const allowedOrigins = [
+//             'https://prueba.coparelampago.com',
+//             'https://coparelampago.com',
+//             'https://www.coparelampago.com',
+//             'https://appcoparelampago.vercel.app',
+//             'http://localhost:5173',
+//         ];
+//         if (!origin || allowedOrigins.includes(origin)) {
+//             callback(null, true);
+//         } else {
+//             callback(new Error('No autorizado por CORS'));
+//         }
+//     },
+//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//     credentials: true,
+//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Socket-Id']
+// }));
 app.use(cors({
-    origin: (origin, callback) => {
-        const allowedOrigins = [
-            'https://prueba.coparelampago.com',
-            'https://coparelampago.com',
-            'https://www.coparelampago.com',
-            'https://appcoparelampago.vercel.app',
-            'http://localhost:5173',
-        ];
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('No autorizado por CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Socket-Id']
+    origin: true,
+    credentials: true
 }));
 
 
