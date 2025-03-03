@@ -39,7 +39,8 @@ app.use(cors({
             'https://prueba.coparelampago.com',
             'https://coparelampago.com',
             'https://www.coparelampago.com',
-            'https://appcoparelampago.vercel.app'
+            'https://appcoparelampago.vercel.app',
+            'http://localhost:5173',
         ];
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
