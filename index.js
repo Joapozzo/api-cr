@@ -11,6 +11,35 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Middlewares
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
+        }
+    }
+}));
+
+app.use(cookieParser());
+app.use(express.json());
+
+app.use(cors({
+    origin: [
+        'https://prueba.coparelampago.com', 
+        'https://coparelampago.com',
+        'https://www.coparelampago.com',
+        'https://appcoparelampago.vercel.app',
+        'http://localhost:5173', 
+        'http://localhost:5174', 
+        'http://192.168.0.13:5173'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
+}));
+
 const server = http.createServer(app);
 const io = new Server(server, {
     connectionStateRecovery: {},
@@ -29,44 +58,13 @@ const io = new Server(server, {
     }
 });
 
-// Middlewares
-app.use(helmet({
-    crossOriginResourcePolicy: false,
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
-        }
-    }
-}));
-
-app.use(cookieParser());
-app.use(express.json());
-// app.use(cors({
-//     origin: (origin, callback) => {
-//         const allowedOrigins = [
-//             'https://prueba.coparelampago.com',
-//             'https://coparelampago.com',
-//             'https://www.coparelampago.com',
-//             'https://appcoparelampago.vercel.app',
-//             'http://localhost:5173',
-//         ];
-//         if (!origin || allowedOrigins.includes(origin)) {
-//             callback(null, true);
-//         } else {
-//             callback(new Error('No autorizado por CORS'));
-//         }
-//     },
-//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-//     credentials: true,
-//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Socket-Id']
-// }));
-app.use(cors({
-    origin: true,
-    credentials: true
-}));
-
+app.options('*', (req, res) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.sendStatus(204);
+});
 
 // Middleware para adjuntar io al objeto req
 app.use((req, res, next) => {
