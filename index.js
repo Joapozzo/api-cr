@@ -43,30 +43,34 @@ app.use(helmet({
 
 app.use(cookieParser());
 app.use(express.json());
-app.use(cors({
-    origin: (origin, callback) => {
-        const allowedOrigins = [
-            'https://prueba.coparelampago.com',
-            'https://coparelampago.com',
-            'https://www.coparelampago.com',
-            'https://appcoparelampago.vercel.app',
-            'http://localhost:5173',
-        ];
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('No autorizado por CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Socket-Id']
-}));
-// app.use(cors({
-//     origin: true,
-//     credentials: true
-// }));
 
+app.use(cors({
+    origin: [
+        "http://localhost:5173",
+        "https://prueba.coparelampago.com",
+        "https://coparelampago.com",
+        "https://www.coparelampago.com",
+        "https://appcoparelampago.vercel.app"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin"
+    ],
+    credentials: true
+}));
+
+// Manejar preflight requests (OPTIONS)
+app.options("*", (req, res) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.sendStatus(204);
+});
 
 // Middleware para adjuntar io al objeto req
 app.use((req, res, next) => {
