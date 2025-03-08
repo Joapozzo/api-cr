@@ -11,49 +11,6 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Middlewares
-app.use(helmet({
-    crossOriginResourcePolicy: false,
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
-        }
-    }
-}));
-
-app.use(cookieParser());
-app.use(express.json());
-
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Credentials", "true");
-
-    // Manejar preflight requests (OPTIONS)
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-    }
-
-    next();
-});
-
-app.use(cors({
-    origin: [
-        'https://prueba.coparelampago.com', 
-        'https://coparelampago.com',
-        'https://www.coparelampago.com',
-        'https://appcoparelampago.vercel.app',
-        'http://localhost:5173', 
-        'http://localhost:5174', 
-        'http://192.168.0.13:5173'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-}));
-
 const server = http.createServer(app);
 const io = new Server(server, {
     connectionStateRecovery: {},
@@ -72,13 +29,44 @@ const io = new Server(server, {
     }
 });
 
-app.options('*', (req, res) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.sendStatus(204);
-});
+// Middlewares
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
+        }
+    }
+}));
+
+app.use(cookieParser());
+app.use(express.json());
+app.use(cors({
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            'https://prueba.coparelampago.com',
+            'https://coparelampago.com',
+            'https://www.coparelampago.com',
+            'https://appcoparelampago.vercel.app',
+            'http://localhost:5173',
+        ];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('No autorizado por CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Socket-Id']
+}));
+// app.use(cors({
+//     origin: true,
+//     credentials: true
+// }));
+
 
 // Middleware para adjuntar io al objeto req
 app.use((req, res, next) => {
@@ -112,7 +100,6 @@ process.on("unhandledRejection", (reason, promise) => {
     console.error("Unhandled Rejection", reason);
 });
 
-server.listen(port, () => {
-    console.log(`Servidor corriendo en el puerto ${port}`);
+server.listen(port, "0.0.0.0", () => {
+    console.log(`Corriendo en http://localhost:${port}`);
 });
-
