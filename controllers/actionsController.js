@@ -88,16 +88,16 @@ const insertarRoja = (req, res) => {
 
 const actualizarGol = async (req, res) => {
   const { id_accion, minute } = req.body;
-
+  
   if (!id_accion || !minute) {
     return res.status(400).json({ mensaje: "Faltan parámetros obligatorios" });
   }
 
-  const id_action = id_accion.split('-')[1]; 
+  // const id_action = id_accion.split('-')[1]; 
 
-  if (!id_action) {
-    return res.status(400).json({ mensaje: "Formato de id_accion incorrecto" });
-  }
+  // if (!id_action) {
+  //   return res.status(400).json({ mensaje: "Formato de id_accion incorrecto" });
+  // }
 
   const sql = `
     UPDATE goles
@@ -105,7 +105,7 @@ const actualizarGol = async (req, res) => {
     WHERE id_gol = ?
   `;
 
-  db.query(sql, [minute, id_action], (err, result) => {
+  db.query(sql, [minute, id_accion], (err, result) => {
     if (err) {
       console.error("Error al actualizar el gol:", err);
       return res.status(500).json({ mensaje: "Error al actualizar el gol" });
@@ -126,7 +126,9 @@ const actualizarAmarilla = async (req, res) => {
     return res.status(400).json({ mensaje: "Faltan parámetros obligatorios" });
   }
 
-  const id_action = id_accion.split('-')[1]; // Asegurar que el formato sea correcto
+  // const id_action = id_accion.split('-')[1];
+  const id_action = id_accion;
+
 
   if (!id_action) {
     return res.status(400).json({ mensaje: "Formato de id_accion incorrecto" });
@@ -159,7 +161,9 @@ const actualizarRoja = async (req, res) => {
     return res.status(400).json({ mensaje: "Faltan parámetros obligatorios" });
   }
 
-  const id_action = id_accion.split('-')[1];
+  // const id_action = id_accion.split('-')[1];
+  const id_action = id_accion;
+
 
   if (!id_action) {
     return res.status(400).json({ mensaje: "Formato de id_accion incorrecto" });
@@ -187,14 +191,15 @@ const actualizarRoja = async (req, res) => {
 
 const eliminarGol = async (req, res) => {
   const { id_partido, id_accion, id_equipo } = req.query;
-
+  console.log(id_partido, id_accion, id_equipo);
+  
   if (!id_partido || !id_accion || !id_equipo) {
     return res.status(400).json({ mensaje: "Faltan parámetros obligatorios" });
   }
 
-  const id_gol = id_accion.split('-')[1];
+  // const id_gol = id_accion.split('-')[1];
 
-  db.query('CALL sp_eliminar_gol(?, ?, ?)', [id_partido, id_gol, id_equipo], (err) => {
+  db.query('CALL sp_eliminar_gol(?, ?, ?)', [id_partido, id_accion, id_equipo], (err) => {
     if (err) {
       return res.status(500).json({ mensaje: 'Error al eliminar el gol' });
     }
@@ -210,7 +215,9 @@ const eliminarAmarilla = async (req, res) => {
     return res.status(400).json({ mensaje: "Faltan parámetros obligatorios" });
   }
 
-  const id_accion = id_action.split('-')[1];
+  // const id_accion = id_action.split('-')[1];
+  const id_accion = id_action;
+
 
   const query = `DELETE FROM amonestados WHERE id_partido = ? AND id_jugador = ? AND id_amonestacion = ?`;
   const params = [id_partido, id_jugador, id_accion];
@@ -282,7 +289,8 @@ const eliminarRoja = async (req, res) => {
     return res.status(400).json({ mensaje: "Faltan parámetros obligatorios" });
   }
 
-  const id_action = id_accion.split('-')[1];
+  // const id_action = id_accion.split('-')[1];
+  const id_action = id_accion;
 
   // Obtener id_categoria
   const getCategoriaQuery = `SELECT id_categoria FROM partidos WHERE id_partido = ?`;

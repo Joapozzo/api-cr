@@ -582,7 +582,7 @@ const crearExpulsion = async (req, res) => {
     // Primera consulta: Verificar si el jugador ya tiene una expulsión activa
     db.query(sql, [id_jugador, id_categoria], (err, result) => {
       if (err) {
-        return res.status(500).send("Error interno del servidor");
+        return res.status(500).json({mensaje: "Error interno del servidor"});
       }
 
       const { expulsiones_activas } = result[0];
@@ -590,7 +590,7 @@ const crearExpulsion = async (req, res) => {
         // Si hay una expulsión activa, terminamos aquí.
         return res
           .status(400)
-          .send("El jugador ya tiene una expulsión activa en la categoría");
+          .json({mensaje: "El jugador ya tiene una expulsión activa en la categoría"});
       }
 
       // Si no hay expulsión activa, llamamos al procedimiento almacenado
@@ -610,17 +610,17 @@ const crearExpulsion = async (req, res) => {
               // Error lanzado desde el procedimiento almacenado con SIGNAL
               return res
                 .status(400)
-                .send({
+                .json({
                   error:
                     err.sqlMessage || "Error en el procedimiento almacenado",
                 });
             } else {
-              return res.status(500).send("Error al registrar la expulsión");
+              return res.status(500).json({mensaje: "Error al registrar la expulsión"});
             }
           }
 
           // Expulsión registrada exitosamente
-          res.status(201).send("Expulsión registrada exitosamente");
+          res.status(201).json({mensaje: "Expulsión creada con éxito"});
         }
       );
     });
