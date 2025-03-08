@@ -112,6 +112,7 @@ process.on("unhandledRejection", (reason, promise) => {
     console.error("Unhandled Rejection", reason);
 });
 
-server.listen(port, "0.0.0.0", () => {
-    console.log(`Corriendo en http://localhost:${port}`);
+server.listen(port, () => {
+    console.log(`Servidor corriendo en el puerto ${port}`);
 });
+
