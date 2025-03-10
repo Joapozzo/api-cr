@@ -30,16 +30,16 @@ const io = new Server(server, {
 });
 
 // Middlewares
-app.use(helmet({
-    crossOriginResourcePolicy: false,
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
-        }
-    }
-}));
+// app.use(helmet({
+//     crossOriginResourcePolicy: false,
+//     contentSecurityPolicy: {
+//         directives: {
+//             defaultSrc: ["'self'"],
+//             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+//             connectSrc: ["'self'", "https://api-cr-zeta.vercel.app", "ws://localhost:5173", "wss://api-cr-zeta.vercel.app"]
+//         }
+//     }
+// }));
 
 app.use(cookieParser());
 app.use(express.json());
@@ -65,27 +65,27 @@ app.use(cors({
     credentials: true
 }));
 
-app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
+// app.use((req, res, next) => {
+//     res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+//     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+//     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//     res.setHeader("Access-Control-Allow-Credentials", "true");
 
-    if (req.method === "OPTIONS") {
-        return res.status(204).end();
-    }
+//     if (req.method === "OPTIONS") {
+//         return res.status(204).end();
+//     }
     
-    next();
-});
+//     next();
+// });
 
-// Manejar preflight requests (OPTIONS)
-app.options("*", (req, res) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.sendStatus(204);
-});
+// // Manejar preflight requests (OPTIONS)
+// app.options("*", (req, res) => {
+//     res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+//     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+//     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+//     res.header("Access-Control-Allow-Credentials", "true");
+//     res.sendStatus(204);
+// });
 
 // Middleware para adjuntar io al objeto req
 app.use((req, res, next) => {
