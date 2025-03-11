@@ -796,8 +796,7 @@ const updatePartido = (req, res) => {
 };
 
 const suspenderPartido = (req, res) => {
-  const { goles_local, goles_visita, descripcion, estado, id_partido } =
-    req.body;
+  const { goles_local, goles_visita, descripcion, estado, id_partido } = req.body;
   console.log("Request received:", req.body);
 
   if (!id_partido) {
