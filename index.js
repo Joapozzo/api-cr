@@ -8,6 +8,12 @@ const helmet = require("helmet");
 
 dotenv.config();
 
+const allowedOrigins = [
+    'https://coparelampago.com', // Dominio de tu frontend en producción
+    'https://www.coparelampago.com', // Si usas www
+    'http://localhost:5173', // Para desarrollo
+];
+
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -15,15 +21,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
     connectionStateRecovery: {},
     cors: {
-        origin: [
-            'https://prueba.coparelampago.com', 
-            'https://coparelampago.com',
-            'https://www.coparelampago.com',
-            'https://appcoparelampago.vercel.app',
-            'http://localhost:5173', 
-            'http://localhost:5174', 
-            'http://192.168.0.13:5173'
-        ],
+        allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     }
@@ -38,24 +36,15 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "https://prueba.coparelampago.com", 
-        "https://coparelampago.com",
-        "https://www.coparelampago.com",
-        "https://appcoparelampago.vercel.app",
-        "http://localhost:5174", 
-        "http://192.168.0.13:5173"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "Accept",
-        "Origin"
-    ],
-    credentials: true
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('No permitido por CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
 }));
 
 app.options('*', (req, res) => {
