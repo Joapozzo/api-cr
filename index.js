@@ -19,9 +19,8 @@ const port = process.env.PORT || 3001;
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    connectionStateRecovery: {},
     cors: {
-        allowedOrigins,
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     }
@@ -37,22 +36,28 @@ app.use(express.json());
 
 app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('No permitido por CORS'));
-      }
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, origin);
+        } else {
+            callback(new Error('No permitido por CORS'));
+        }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
 }));
 
+
 app.options('*', (req, res) => {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Socket-Id');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.sendStatus(204);
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Socket-Id');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.sendStatus(204);
+    } else {
+        res.sendStatus(403);
+    }
 });
 
 // Middleware para adjuntar io al objeto req
