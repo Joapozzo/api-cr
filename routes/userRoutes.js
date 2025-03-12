@@ -16,8 +16,9 @@ const { revisarToken, revisarPlanillero } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// router.get('/get-users', userController.getUsers);
-// router.get('/get-roles', userController.getRoles);
+router.get('/get-users', userController.getUsers);
+router.get('/get-roles', userController.getRoles);
+
 // router.get('/get-partidos', userController.getPartidos);
 // router.get('/get-categorias', userController.getCategorias);
 // router.get('/get-jugadores', userController.getJugadores);
