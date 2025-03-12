@@ -19,8 +19,9 @@ const port = process.env.PORT || 3001;
 
 const server = http.createServer(app);
 const io = new Server(server, {
+    connectionStateRecovery: {},
     cors: {
-        origin: allowedOrigins,
+        allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     }
