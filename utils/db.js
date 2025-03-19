@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const dbConfig = {
-    connectionLimit: 10,  // Número máximo de conexiones en el pool
+    connectionLimit: 50,  // Número máximo de conexiones en el pool
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -14,6 +14,15 @@ const dbConfig = {
     waitForConnections: true, // Esperar si el pool está lleno
     queueLimit: 0, // Sin límite de peticiones en espera
 };
+
+// const dbConfig = {
+//     connectionLimit: 50,
+//     waitForConnections: true,
+//     queueLimit: 0,
+//     connectTimeout: 10000,
+//     acquireTimeout: 10000,
+//     timeout: 30000 // 🔴 Asegura que las conexiones inactivas se cierren
+// };
 
 const pool = mysql.createPool(dbConfig);
 
@@ -34,6 +43,22 @@ pool.on('connection', (connection) => {
 
     connection.on('end', () => {
         console.warn('⚠️ Conexión MySQL terminada.');
+    });
+});
+
+pool.getConnection((err, connection) => {
+    if (err) {
+        console.error('❌ Error obteniendo conexión:', err);
+        return;
+    }
+
+    connection.query('SELECT * FROM etapas', (error, results) => {
+        connection.release();  // 🔴 IMPORTANTE: Liberar la conexión
+        if (error) {
+            console.error('Error en la consulta:', error);
+            return;
+        }
+        console.log(results);
     });
 });
 

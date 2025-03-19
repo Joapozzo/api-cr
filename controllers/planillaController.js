@@ -231,13 +231,13 @@ const firmaJugador = (req, res) => {
     }
 
     // Emitir el evento de dorsal asignado a través de WebSocket
-    const dorsalData = { id_partido, id_jugador, dorsal };
-    if (req.io && typeof req.io.emit === "function") {
-      req.io.emit("dorsalAsignado", dorsalData);
-    } else {
-      console.error("Socket.io no está disponible");
-      return res.status(500).send("Error en el servidor de WebSocket");
-    }
+    // const dorsalData = { id_partido, id_jugador, dorsal };
+    // if (req.io && typeof req.io.emit === "function") {
+    //   req.io.emit("dorsalAsignado", dorsalData);
+    // } else {
+    //   console.error("Socket.io no está disponible");
+    //   return res.status(500).send("Error en el servidor de WebSocket");
+    // }
 
     res.status(200).send("Dorsal guardado correctamente");
   });
@@ -480,7 +480,8 @@ INNER JOIN
     partidos AS p ON jd.id_partido = p.id_partido
 WHERE 
     jd.id_categoria = ? 
-    AND p.jornada = ?;
+    AND p.jornada = ?
+    AND dt = 'N'
   `;
   db.query(sql, [id_categoria, jornada], (err, result) => {
     if (err) {
@@ -677,9 +678,9 @@ const actualizarEstadoPartido = (req, res) => {
       }
 
       // Emitir el nuevo estado del partido a través de WebSocket
-      req.io.emit("nuevo-estado-partido", { id_partido, nuevoEstado });
+      // req.io.emit("nuevo-estado-partido", { id_partido, nuevoEstado });
 
-      res.status(200).json({ mensaje: `Partido ${palabra} con éxito` });
+      res.status(200).json({ mensaje: `Partido ${palabra} con éxito`, data: { id_partido, nuevoEstado }});
     });
   });
 };

@@ -32,10 +32,10 @@ const sendVerificationEmail = async (email, dni, nombre) => {
 
         // Enviar el correo
         await transporter.sendMail({
-            from: '"Copa Relámpago" <soporte@coparelampago.com>',
-            to: email,
-            subject: "Copa Relámpago - Mail de validación",
-            html: html
+          from: `"Copa Relámpago" <${process.env.ML_USER}>`,
+          to: email,
+          subject: "Copa Relámpago - Mail de validación",
+          html: html,
         });
 
         console.log('Correo de verificación enviado');

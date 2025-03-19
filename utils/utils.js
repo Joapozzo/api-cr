@@ -1,7 +1,7 @@
 const URL_BACK =
   process.env.NODE_ENV === "development"
     ? "http://localhost:3001"
-    : "https://crbackend-production.up.railway.app";
+    : "https://api-cr-zeta.vercel.app";
 
 const URL_FRONT =
   process.env.NODE_ENV === "development"

@@ -3,6 +3,10 @@ const jsonwebtoken = require('jsonwebtoken');
 const db = require('../utils/db');
 const mailer = require('../utils/mailer');
 const { URL_FRONT } = require('../utils/utils');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
 
 const checkEmail = (req, res) => {
     const { email, bandera } = req.body;
@@ -138,7 +142,7 @@ const checkAuthentication = (req, res) => {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).send('Usuario no autenticado');
 
-        const decoded = jsonwebtoken.verify(token, 'textosecretoDECIFRADO');
+        const decoded = jsonwebtoken.verify(token, process.env.JWT_SECRET);
         db.query('SELECT * FROM usuarios WHERE dni = ?', [decoded.user], (err, result) => {
             if (err || result.length === 0) return res.status(401).send('Usuario no encontrado');
             

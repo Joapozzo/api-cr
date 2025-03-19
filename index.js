@@ -21,8 +21,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
     connectionStateRecovery: {},
     cors: {
-        allowedOrigins,
-        methods: ['GET', 'POST'],
+        origin: allowedOrigins,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         credentials: true
     }
 });
@@ -31,7 +31,6 @@ const io = new Server(server, {
 app.use(helmet({
     crossOriginResourcePolicy: false
 }));
-
 app.use(cookieParser());
 app.use(express.json());
 

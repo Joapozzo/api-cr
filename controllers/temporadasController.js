@@ -109,7 +109,8 @@ SELECT
 FROM 
     temporadas t
     LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
-    LEFT JOIN zonas z ON z.id_zona = t.id_zona;
+    LEFT JOIN zonas z ON z.id_zona = t.id_zona
+ORDER BY e.nombre ASC;
 `, 
     (err, result) => {
         if (err) return res.status(500).send('Error interno del servidor');

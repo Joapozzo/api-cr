@@ -17,7 +17,7 @@ const insertarGol = (req, res) => {
           }
 
           // Emitir el evento del socket después de que la operación termine
-          req.io.emit('insertar-gol', { id_partido, id_jugador, id_equipo, action, detail, minute });
+          // req.io.emit('insertar-gol', { id_partido, id_jugador, id_equipo, action, detail, minute });
 
           res.status(200).json({ mensaje: 'Gol registrado exitosamente' });
       }
@@ -42,8 +42,7 @@ const insertarAmarilla = async (req, res) => {
         return res.status(500).json({mensaje: 'Error al registrar la amarilla'});
       }
       
-      req.io.emit('insertar-amarilla', { id_partido, id_jugador, id_equipo, action, minute });
-      
+      // req.io.emit('insertar-amarilla', { id_partido, id_jugador, id_equipo, action, minute });
       res.status(200).json({mensaje: 'Amarilla registrada exitosamente'});
 
       // Contar amarillas 
@@ -53,11 +52,12 @@ const insertarAmarilla = async (req, res) => {
           console.error("Error al obtener la cantidad de amarillas:", err);
           return res.status(500).json({mensaje: 'Error al obtener la cantidad de amarillas'});
         }
-        const amarillas = results[0].amarillas;
-        if (amarillas == 2) { 
-          req.io.emit('insertar-roja', { id_partido, id_jugador, id_equipo, action, minute });
-          return;
-        }
+
+        // const amarillas = results[0].amarillas;
+        // if (amarillas == 2) { 
+        //   req.io.emit('insertar-roja', { id_partido, id_jugador, id_equipo, action, minute });
+        //   return;
+        // }
       })
     });
 }
@@ -79,7 +79,7 @@ const insertarRoja = (req, res) => {
           }
 
           // Emitir el evento del socket después de que la operación termine
-          req.io.emit('insertar-roja', { id_partido, id_jugador, id_equipo, action, detail, minute });
+          // req.io.emit('insertar-roja', { id_partido, id_jugador, id_equipo, action, detail, minute });
 
           res.status(200).json({ mensaje: 'Roja registrada exitosamente' });
       }
@@ -114,7 +114,7 @@ const actualizarGol = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ mensaje: "Gol no encontrado" });
     }
-    req.io.emit('actualizar-gol', { id_accion, minute });
+    // req.io.emit('actualizar-gol', { id_accion, minute });
     return res.status(200).json({ mensaje: "Gol actualizado correctamente" });
   });
 };
@@ -149,7 +149,7 @@ const actualizarAmarilla = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ mensaje: "Amarilla no encontrada" });
     }
-    req.io.emit('actualizar-amarilla', { id_accion, minute });
+    // req.io.emit('actualizar-amarilla', { id_accion, minute });
     return res.status(200).json({ mensaje: "Amarilla actualizada correctamente" });
   });
 };
@@ -184,7 +184,7 @@ const actualizarRoja = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ mensaje: "Roja no encontrada" });
     }
-    req.io.emit('actualizar-roja', { id_accion, minute });
+    // req.io.emit('actualizar-roja', { id_accion, minute });
     return res.status(200).json({ mensaje: "Roja actualizada correctamente" });
   });
 };
@@ -203,7 +203,7 @@ const eliminarGol = async (req, res) => {
     if (err) {
       return res.status(500).json({ mensaje: 'Error al eliminar el gol' });
     }
-    req.io.emit('eliminar-gol', { id_partido, id_accion, id_equipo });
+    // req.io.emit('eliminar-gol', { id_partido, id_accion, id_equipo });
     return res.status(200).json({ mensaje: 'Gol eliminado con éxito' });
   });
 };
@@ -272,10 +272,10 @@ const eliminarAmarilla = async (req, res) => {
               }
             });
 
-            req.io.emit("eliminar-expulsion", { id_partido, id_jugador, id_action });
+            // req.io.emit("eliminar-expulsion", { id_partido, id_jugador, id_action });
           });
         }
-        req.io.emit("eliminar-amarilla", { id_partido, id_action, id_equipo });
+        // req.io.emit("eliminar-amarilla", { id_partido, id_action, id_equipo });
         res.json({ mensaje: "Acción eliminada exitosamente" });
       });
     });
@@ -339,7 +339,7 @@ const eliminarRoja = async (req, res) => {
             return res.status(500).json({ mensaje: "Error al actualizar el estado de sanción" });
           }
 
-          req.io.emit("eliminar-expulsion", { id_partido, id_jugador, id_action });
+          // req.io.emit("eliminar-expulsion", { id_partido, id_jugador, id_action });
           return res.status(200).json({ mensaje: "Expulsión eliminada exitosamente" });
         });
       });
@@ -402,7 +402,7 @@ const insertarJugadorDestacado = async (req, res) => {
                   return res.status(404).json({ error: "Jugador destacado no encontrado después de insertar." });
               }
 
-              req.io.emit('insertar-jugador-destacado', result[0]);
+              // req.io.emit('insertar-jugador-destacado', result[0]);
 
               res.status(201).json({ message: "Jugador destacado insertado correctamente.", jugador: result[0] });
           });
@@ -430,7 +430,7 @@ const eliminarJugadorDestacado = async (req, res) => {
 
       await db.query(deleteQuery, [id_partido, id_jugador, id_categoria]);
 
-      req.io.emit('eliminar-jugador-destacado', { id_partido, id_jugador });
+      // req.io.emit('eliminar-jugador-destacado', { id_partido, id_jugador });
 
       res.status(200).json({ message: "Jugador destacado eliminado correctamente." });
   } catch (error) {
