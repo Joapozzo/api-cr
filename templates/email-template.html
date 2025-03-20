@@ -14,6 +14,10 @@
             margin: 0;
             padding: 0;
             width: 100% !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }
         .container {
             width: 100%;
@@ -21,6 +25,8 @@
             margin: 0 auto;
             padding: 20px;
             background-color: #fafafa;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .header {
             background-color: #2AD174;
@@ -32,8 +38,6 @@
             background-color: #fafafa;
             padding: 30px 20px;
             border-radius: 0 0 5px 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            width: 100%;
             text-align: center;
         }
         .content > a {
@@ -42,11 +46,9 @@
         .button {
             text-decoration: none;
             font-size: 16px;
-            color: inherit;
-            /* color: #fafafa; */
+            color: #fafafa;
             background-color: #2AD174;
             padding: 10px 0px;
-            text-decoration: none;
             border-radius: 5px;
             font-weight: 700;
             width: 100%;
@@ -71,7 +73,7 @@
             font-size: 12px;
         }
         .img {
-            height: 20px;
+            height: 50px;
         }
         .icon {
             width: 150px;
@@ -82,31 +84,29 @@
     </style>
 </head>
 <body>
-    <center>
-        <table class="container" cellpadding="0" cellspacing="0">
-            <tr>
-                <td class="header">
-                    <!-- <img class="img" src="https://coparelampago.com/uploads/CR/logoCopaRelampago.png" alt=""> -->
-                </td>
-            </tr>
-            <tr>
-                <td class="content">
-                    <h3 class="bienvenida">Hola, <span class="nombre">{{nombre}}</span> 👋</h3>
-                    <p>Gracias por registrarte al sistema de Copa Relámpago.</p>
-                    <div class="spacer"></div>
-                    <!-- <img src="https://coparelampago.com/uploads/CR/icon-email.png" alt="icono de casilla de correo" class="icon"> -->
-                    <div class="spacer"></div>
-                    <p>Para completar el proceso de registro, por favor confirma tu cuenta haciendo clic en el <strong>botón de abajo. 👇</strong> </p>
-                    <a href="{{url}}" class="button">VALIDAR CUENTA</a>
-                    <p class="text-footer">Si no has solicitado esta verificación, puedes ignorar este correo.</p>
-                </td>
-            </tr>
-            <tr>
-                <td class="footer">
-                    <p>&copy; {{year}} Copa Relámpago. Todos los derechos reservados.</p>
-                </td>
-            </tr>
-        </table>
-    </center>
+    <table class="container" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="header">
+                <img class="img" src="https://coparelampago.com/uploads/CR/logo.png" alt="logo de Copa Relámpago">
+            </td>
+        </tr>
+        <tr>
+            <td class="content">
+                <h3 class="bienvenida">Hola, <span class="nombre">{{nombre}}</span> 👋</h3>
+                <p>Gracias por registrarte al sistema de Copa Relámpago.</p>
+                <div class="spacer"></div>
+                <img src="https://coparelampago.com/uploads/CR/icon-email.png" alt="icono de casilla de correo" class="icon">
+                <div class="spacer"></div>
+                <p>Para completar el proceso de registro, por favor confirma tu cuenta haciendo clic en el <strong>botón de abajo. 👇</strong> </p>
+                <a href="{{url}}" class="button">VALIDAR CUENTA</a>
+                <p class="text-footer">Si no has solicitado esta verificación, puedes ignorar este correo.</p>
+            </td>
+        </tr>
+        <tr>
+            <td class="footer">
+                <p>&copy; {{year}} Copa Relámpago. Todos los derechos reservados.</p>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
