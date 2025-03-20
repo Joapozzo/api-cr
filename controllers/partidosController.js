@@ -2,71 +2,154 @@ const db = require('../utils/db');
 const { esPartidoVuelta } = require('./helpers/partidosHelpers');
 
 const getPartidos = (req, res) => {
-    db.query(
-            `SELECT
-        p.id_edicion,
-        p.id_zona,
-        p.id_categoria,
-        p.id_partido,
-        DAY(p.dia) AS dia_numero,
-        MONTH(p.dia) AS mes,
-        YEAR(p.dia) AS año,
-        CASE
-            WHEN DAYNAME(p.dia) = 'Monday' THEN 'Lunes'
-            WHEN DAYNAME(p.dia) = 'Tuesday' THEN 'Martes'
-            WHEN DAYNAME(p.dia) = 'Wednesday' THEN 'Miércoles'
-            WHEN DAYNAME(p.dia) = 'Thursday' THEN 'Jueves'
-            WHEN DAYNAME(p.dia) = 'Friday' THEN 'Viernes'
-            WHEN DAYNAME(p.dia) = 'Saturday' THEN 'Sábado'
-            WHEN DAYNAME(p.dia) = 'Sunday' THEN 'Domingo'
-        END AS dia_nombre,
-        p.id_equipoLocal,
-        p.id_equipoVisita,
-        p.estado,
-        p.jornada,
-        p.dia,
-        p.hora,
-        p.goles_local,
-        p.goles_visita,
-        p.pen_local,
-        p.pen_visita,
-        p.cancha,
-        p.arbitro,
-        p.destacado,
-        p.descripcion,
-        p.id_planillero,
-        j.id_jugador AS jugador_destacado,
-        c.nombre AS nombre_categoria,
-        CONCAT(u.nombre, ' ', u.apellido) AS planillero,
-        CONCAT(e.nombre, ' ', e.temporada) AS nombre_edicion,
-        p.vacante_local,
-        p.vacante_visita,
-        p.id_partido_previo_local,
-        p.id_partido_previo_visita,
-        p.res_partido_previo_local,
-        p.res_partido_previo_visita,
-        p.id_partido_posterior_ganador,
-        p.id_partido_posterior_perdedor,
-        p.interzonal,
-        p.ventaja_deportiva,
-        ida,
-        vuelta
-    FROM
-        partidos p
-    LEFT JOIN
-        equipos e1 ON p.id_equipoLocal = e1.id_equipo
-    LEFT JOIN
-        equipos e2 ON p.id_equipoVisita = e2.id_equipo
-    LEFT JOIN
-        usuarios u ON p.id_planillero = u.id_usuario
-    LEFT JOIN
-        jugadores j ON p.id_jugador_destacado = j.id_jugador
-    LEFT JOIN
-        categorias c ON p.id_categoria = c.id_categoria
-    LEFT JOIN
-        ediciones e ON p.id_edicion = e.id_edicion;`
-    ,(err, result) => {
-        if (err) return res.status(500).send('Error interno del servidor');
+    const { id_categoria } = req.query; // Obtiene el id_categoria desde los parámetros de consulta
+    let query;
+    let params = [];
+
+    if (id_categoria) {
+        query = `
+            SELECT
+                p.id_edicion,
+                p.id_zona,
+                p.id_categoria,
+                p.id_partido,
+                DAY(p.dia) AS dia_numero,
+                MONTH(p.dia) AS mes,
+                YEAR(p.dia) AS año,
+                CASE
+                    WHEN DAYNAME(p.dia) = 'Monday' THEN 'Lunes'
+                    WHEN DAYNAME(p.dia) = 'Tuesday' THEN 'Martes'
+                    WHEN DAYNAME(p.dia) = 'Wednesday' THEN 'Miércoles'
+                    WHEN DAYNAME(p.dia) = 'Thursday' THEN 'Jueves'
+                    WHEN DAYNAME(p.dia) = 'Friday' THEN 'Viernes'
+                    WHEN DAYNAME(p.dia) = 'Saturday' THEN 'Sábado'
+                    WHEN DAYNAME(p.dia) = 'Sunday' THEN 'Domingo'
+                END AS dia_nombre,
+                p.id_equipoLocal,
+                p.id_equipoVisita,
+                p.estado,
+                p.jornada,
+                p.dia,
+                p.hora,
+                p.goles_local,
+                p.goles_visita,
+                p.pen_local,
+                p.pen_visita,
+                p.cancha,
+                p.arbitro,
+                p.destacado,
+                p.descripcion,
+                p.id_planillero,
+                j.id_jugador AS jugador_destacado,
+                c.nombre AS nombre_categoria,
+                CONCAT(u.nombre, ' ', u.apellido) AS planillero,
+                CONCAT(e.nombre, ' ', e.temporada) AS nombre_edicion,
+                p.vacante_local,
+                p.vacante_visita,
+                p.id_partido_previo_local,
+                p.id_partido_previo_visita,
+                p.res_partido_previo_local,
+                p.res_partido_previo_visita,
+                p.id_partido_posterior_ganador,
+                p.id_partido_posterior_perdedor,
+                p.interzonal,
+                p.ventaja_deportiva,
+                ida,
+                vuelta
+            FROM
+                partidos p
+            LEFT JOIN
+                equipos e1 ON p.id_equipoLocal = e1.id_equipo
+            LEFT JOIN
+                equipos e2 ON p.id_equipoVisita = e2.id_equipo
+            LEFT JOIN
+                usuarios u ON p.id_planillero = u.id_usuario
+            LEFT JOIN
+                jugadores j ON p.id_jugador_destacado = j.id_jugador
+            LEFT JOIN
+                categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN
+                ediciones e ON p.id_edicion = e.id_edicion
+            WHERE 
+                p.id_categoria = ?
+            ORDER BY 
+                p.dia;
+        `;
+        params = [id_categoria];
+    } else {
+        query = `
+            SELECT
+                p.id_edicion,
+                p.id_zona,
+                p.id_categoria,
+                p.id_partido,
+                DAY(p.dia) AS dia_numero,
+                MONTH(p.dia) AS mes,
+                YEAR(p.dia) AS año,
+                CASE
+                    WHEN DAYNAME(p.dia) = 'Monday' THEN 'Lunes'
+                    WHEN DAYNAME(p.dia) = 'Tuesday' THEN 'Martes'
+                    WHEN DAYNAME(p.dia) = 'Wednesday' THEN 'Miércoles'
+                    WHEN DAYNAME(p.dia) = 'Thursday' THEN 'Jueves'
+                    WHEN DAYNAME(p.dia) = 'Friday' THEN 'Viernes'
+                    WHEN DAYNAME(p.dia) = 'Saturday' THEN 'Sábado'
+                    WHEN DAYNAME(p.dia) = 'Sunday' THEN 'Domingo'
+                END AS dia_nombre,
+                p.id_equipoLocal,
+                p.id_equipoVisita,
+                p.estado,
+                p.jornada,
+                p.dia,
+                p.hora,
+                p.goles_local,
+                p.goles_visita,
+                p.pen_local,
+                p.pen_visita,
+                p.cancha,
+                p.arbitro,
+                p.destacado,
+                p.descripcion,
+                p.id_planillero,
+                j.id_jugador AS jugador_destacado,
+                c.nombre AS nombre_categoria,
+                CONCAT(u.nombre, ' ', u.apellido) AS planillero,
+                CONCAT(e.nombre, ' ', e.temporada) AS nombre_edicion,
+                p.vacante_local,
+                p.vacante_visita,
+                p.id_partido_previo_local,
+                p.id_partido_previo_visita,
+                p.res_partido_previo_local,
+                p.res_partido_previo_visita,
+                p.id_partido_posterior_ganador,
+                p.id_partido_posterior_perdedor,
+                p.interzonal,
+                p.ventaja_deportiva,
+                ida,
+                vuelta
+            FROM
+                partidos p
+            LEFT JOIN
+                equipos e1 ON p.id_equipoLocal = e1.id_equipo
+            LEFT JOIN
+                equipos e2 ON p.id_equipoVisita = e2.id_equipo
+            LEFT JOIN
+                usuarios u ON p.id_planillero = u.id_usuario
+            LEFT JOIN
+                jugadores j ON p.id_jugador_destacado = j.id_jugador
+            LEFT JOIN
+                categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN
+                ediciones e ON p.id_edicion = e.id_edicion
+            ORDER BY 
+                p.dia;
+        `;
+    }
+
+    db.query(query, params, (err, result) => {
+        if (err) {
+            console.error("Error en la consulta:", err);
+            return res.status(500).send('Error interno del servidor');
+        }
         res.send(result);
     });
 };

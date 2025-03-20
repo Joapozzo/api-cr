@@ -10,7 +10,6 @@ const getUsers = (req, res) => {
                 DATE_FORMAT(u.nacimiento, '%d/%m/%Y') AS nacimiento,
                 u.telefono,
                 u.email,
-                r.nombre,
                 u.fecha_creacion,
                 u.fecha_actualizacion,
                 u.img,

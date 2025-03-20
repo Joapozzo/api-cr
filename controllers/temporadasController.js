@@ -51,68 +51,152 @@ const getEstadisticasCategoria = (req, res) => {
 }
 
 const getZonas = (req, res) => {
-    db.query(`SELECT
-        z.id_zona,
-        c.id_categoria,
-        CONCAT(e.nombre, ' ', e.temporada) AS nombre_edicion,
-        c.nombre AS nombre_categoria,
-        z.nombre AS nombre_zona,
-        c.genero AS genero,
-        z.tipo_zona,
-        z.cantidad_equipos,
-        z.fase,
-        z.id_etapa,
-        z.campeon,
-        z.id_equipo_campeon,
-        z.terminada,
-        CONCAT(z.nombre, ' - ', et.nombre) AS nombre_zona_etapa,
-        et.nombre AS nombre_etapa -- Agrega el nombre de la etapa
-    FROM
-        categorias AS c
-        INNER JOIN ediciones AS e ON e.id_edicion = c.id_edicion
-        INNER JOIN zonas AS z ON z.id_categoria = c.id_categoria
-        INNER JOIN etapas AS et ON et.id_etapa = z.id_etapa -- Asegúrate de que esta relación sea correcta
-    ORDER BY
-        3;
-    `, 
-    (err, result) => {
-        if (err) return res.status(500).send('Error interno del servidor');
+    const { id_categoria } = req.query; // Obtiene id_categoria desde los parámetros de consulta
+    let query;
+    let params = [];
+
+    if (id_categoria) {
+        query = `
+            SELECT
+                z.id_zona,
+                c.id_categoria,
+                CONCAT(e.nombre, ' ', e.temporada) AS nombre_edicion,
+                c.nombre AS nombre_categoria,
+                z.nombre AS nombre_zona,
+                c.genero AS genero,
+                z.tipo_zona,
+                z.cantidad_equipos,
+                z.fase,
+                z.id_etapa,
+                z.campeon,
+                z.id_equipo_campeon,
+                z.terminada,
+                CONCAT(z.nombre, ' - ', et.nombre) AS nombre_zona_etapa,
+                et.nombre AS nombre_etapa
+            FROM
+                categorias AS c
+                INNER JOIN ediciones AS e ON e.id_edicion = c.id_edicion
+                INNER JOIN zonas AS z ON z.id_categoria = c.id_categoria
+                INNER JOIN etapas AS et ON et.id_etapa = z.id_etapa
+            WHERE
+                c.id_categoria = ?
+            ORDER BY 3;
+        `;
+        params = [id_categoria]; // Parámetro para filtrar por categoría
+    } else {
+        query = `
+            SELECT
+                z.id_zona,
+                c.id_categoria,
+                CONCAT(e.nombre, ' ', e.temporada) AS nombre_edicion,
+                c.nombre AS nombre_categoria,
+                z.nombre AS nombre_zona,
+                c.genero AS genero,
+                z.tipo_zona,
+                z.cantidad_equipos,
+                z.fase,
+                z.id_etapa,
+                z.campeon,
+                z.id_equipo_campeon,
+                z.terminada,
+                CONCAT(z.nombre, ' - ', et.nombre) AS nombre_zona_etapa,
+                et.nombre AS nombre_etapa
+            FROM
+                categorias AS c
+                INNER JOIN ediciones AS e ON e.id_edicion = c.id_edicion
+                INNER JOIN zonas AS z ON z.id_categoria = c.id_categoria
+                INNER JOIN etapas AS et ON et.id_etapa = z.id_etapa
+            ORDER BY 3;
+        `;
+    }
+
+    db.query(query, params, (err, result) => {
+        if (err) {
+            console.error("Error en la consulta:", err);
+            return res.status(500).send('Error interno del servidor');
+        }
         res.send(result);
     });
 };
 
 const getTemporadas = (req, res) => {
-    db.query(`
-SELECT
-    t.id_zona,
-    z.tipo_zona,
-    t.id_edicion,
-    t.id_categoria,
-    t.id_equipo,
-    e.nombre AS nombre_equipo,
-    t.vacante,
-    t.apercibimientos,
-    t.pos_zona_previa,
-    t.id_zona_previa,
-    (SELECT COUNT(*)
-        FROM planteles p
-        INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
-        WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
-        AND j.dni IS NOT NULL
-        AND p.eventual = 'N') AS jugadores_con_dni,
-    (SELECT COUNT(*)
-        FROM planteles p
-        INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
-        WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
-        AND j.dni IS NULL
-        AND p.eventual = 'N') AS jugadores_sin_dni
-FROM 
-    temporadas t
-    LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
-    LEFT JOIN zonas z ON z.id_zona = t.id_zona
-ORDER BY e.nombre ASC;
-`, 
-    (err, result) => {
+    const { idsCategorias: id_categoria } = req.query;
+
+    let query;
+    let values = [];
+
+    if (!id_categoria) { 
+        // Caso general: traer todas las temporadas
+        query = `
+        SELECT
+            t.id_zona,
+            z.tipo_zona,
+            t.id_edicion,
+            t.id_categoria,
+            t.id_equipo,
+            e.nombre AS nombre_equipo,
+            t.vacante,
+            t.apercibimientos,
+            t.pos_zona_previa,
+            t.id_zona_previa,
+            (SELECT COUNT(*)
+             FROM planteles p
+             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
+             AND j.dni IS NOT NULL
+             AND p.eventual = 'N') AS jugadores_con_dni,
+            (SELECT COUNT(*)
+             FROM planteles p
+             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
+             AND j.dni IS NULL
+             AND p.eventual = 'N') AS jugadores_sin_dni
+        FROM 
+            temporadas t
+            LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
+            LEFT JOIN zonas z ON z.id_zona = t.id_zona
+        ORDER BY e.nombre ASC;
+        `;
+    } else {
+        // Caso filtrado: traer solo las temporadas de los `id_categoria` indicados
+        const categoriasArray = id_categoria.split(',').map(id => parseInt(id.trim())); // Convertir en array de números
+        const placeholders = categoriasArray.map(() => '?').join(','); // `?,?,?` para SQL
+        values = categoriasArray;
+
+        query = `
+        SELECT
+            t.id_zona,
+            z.tipo_zona,
+            t.id_edicion,
+            t.id_categoria,
+            t.id_equipo,
+            e.nombre AS nombre_equipo,
+            t.vacante,
+            t.apercibimientos,
+            t.pos_zona_previa,
+            t.id_zona_previa,
+            (SELECT COUNT(*)
+             FROM planteles p
+             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
+             AND j.dni IS NOT NULL
+             AND p.eventual = 'N') AS jugadores_con_dni,
+            (SELECT COUNT(*)
+             FROM planteles p
+             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
+             AND j.dni IS NULL
+             AND p.eventual = 'N') AS jugadores_sin_dni
+        FROM 
+            temporadas t
+            LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
+            LEFT JOIN zonas z ON z.id_zona = t.id_zona
+        WHERE t.id_categoria IN (${placeholders})  -- Se generan los placeholders dinámicamente
+        ORDER BY e.nombre ASC;
+        `;
+    }
+
+    db.query(query, values, (err, result) => {
         if (err) return res.status(500).send('Error interno del servidor');
         res.send(result);
     });
@@ -198,7 +282,6 @@ const insertarEquipoTemporadaCategoria = (req, res) => {
         return res.status(200).json({ mensaje: 'Registro insertado en categorias con éxito' });
     });
 };
-
 
 const eliminarEquipoTemporada = (req, res) => {
     const { id_equipo, id_categoria, id_edicion } = req.body;

@@ -1,122 +1,185 @@
 const db = require('../utils/db');
 
 const getEquipos = (req, res) => {
-    db.query(
-        `SELECT
-    e.id_equipo,
-    e.nombre,
-    e.img,
-    e.id_categoria,
-    CONCAT(
-        IFNULL((SELECT COUNT(*) 
-                FROM planteles p 
-                WHERE p.id_equipo = e.id_equipo 
-                  AND p.id_categoria = e.id_categoria 
-                  AND p.eventual = 'N'), 0),
-        ' ',
-        IFNULL(
-            CASE 
-                WHEN c.genero = 'F' THEN 
-                    CASE WHEN (SELECT COUNT(*) 
-                                FROM planteles p 
-                                WHERE p.id_equipo = e.id_equipo 
-                                  AND p.id_categoria = e.id_categoria 
-                                  AND p.eventual = 'N') = 1 
-                        THEN 'jugadora' 
-                        ELSE 'jugadoras' 
-                    END
-                ELSE 
-                    CASE WHEN (SELECT COUNT(*) 
-                                FROM planteles p 
-                                WHERE p.id_equipo = e.id_equipo 
-                                  AND p.id_categoria = e.id_categoria 
-                                  AND p.eventual = 'N') = 1 
-                        THEN 'jugador' 
-                        ELSE 'jugadores' 
-                    END
-            END,
-            ''
-        )
-    ) AS jugadores,
-    CONCAT(
-        IFNULL((SELECT COUNT(*) 
-                FROM planteles p 
-                WHERE p.id_equipo = e.id_equipo 
-                  AND p.id_categoria = e.id_categoria 
-                  AND p.eventual = 'S'), 0),
-        ' ',
-        IFNULL(
-            CASE 
-                WHEN c.genero = 'F' THEN 
-                    CASE WHEN (SELECT COUNT(*) 
-                                FROM planteles p 
-                                WHERE p.id_equipo = e.id_equipo 
-                                  AND p.id_categoria = e.id_categoria 
-                                  AND p.eventual = 'S') = 1 
-                        THEN 'jugadora' 
-                        ELSE 'jugadoras' 
-                    END
-                ELSE 
-                    CASE WHEN (SELECT COUNT(*) 
-                                FROM planteles p 
-                                WHERE p.id_equipo = e.id_equipo 
-                                  AND p.id_categoria = e.id_categoria 
-                                  AND p.eventual = 'S') = 1 
-                        THEN 'jugador' 
-                        ELSE 'jugadores' 
-                    END
-            END,
-            ''
-        )
-    ) AS jugadores_eventuales,
-    CONCAT(
-        IFNULL((SELECT COUNT(*) 
-                FROM planteles p 
-                LEFT JOIN jugadores j ON p.id_jugador = j.id_jugador
-                WHERE p.id_equipo = e.id_equipo 
-                  AND p.id_categoria = e.id_categoria 
-                  AND j.dni IS NULL), 0),
-        ' ',
-        IFNULL(
-            CASE 
-                WHEN c.genero = 'F' THEN 
-                    CASE WHEN (SELECT COUNT(*) 
-                                FROM planteles p 
-                                LEFT JOIN jugadores j ON p.id_jugador = j.id_jugador
-                                WHERE p.id_equipo = e.id_equipo 
-                                  AND p.id_categoria = e.id_categoria 
-                                  AND j.dni IS NULL) = 1 
-                        THEN 'jugadora' 
-                        ELSE 'jugadoras' 
-                    END
-                ELSE 
-                    CASE WHEN (SELECT COUNT(*) 
-                                FROM planteles p 
-                                LEFT JOIN jugadores j ON p.id_jugador = j.id_jugador
-                                WHERE p.id_equipo = e.id_equipo 
-                                  AND p.id_categoria = e.id_categoria 
-                                  AND j.dni IS NULL) = 1 
-                        THEN 'jugador' 
-                        ELSE 'jugadores' 
-                    END
-            END,
-            ''
-        )
-    ) AS jugadores_sin_dni,
-    z.id_zona,
-    e.descripcion,
-    CONCAT(c.nombre, ' ', z.nombre) AS nombre_categoria
-FROM 
-    equipos AS e
-LEFT JOIN 
-    categorias AS c ON c.id_categoria = e.id_categoria
-LEFT JOIN 
-    zonas AS z ON z.id_zona = e.id_zona
-ORDER BY 
-    e.nombre;
-`
-    ,(err, result) => {
-        if (err) return res.status(500).send('Error interno del servidor');
+    const { id_categoria } = req.query; // Obtiene id_categoria desde los parámetros de consulta
+    let query;
+    let params = [];
+
+    if (id_categoria) {
+        query = `
+            SELECT
+                e.id_equipo,
+                e.nombre,
+                e.img,
+                e.id_categoria,
+                CONCAT(
+                    IFNULL((SELECT COUNT(*) 
+                            FROM planteles p 
+                            WHERE p.id_equipo = e.id_equipo 
+                              AND p.id_categoria = e.id_categoria 
+                              AND p.eventual = 'N'), 0),
+                    ' ',
+                    IFNULL(
+                        CASE 
+                            WHEN c.genero = 'F' THEN 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND p.eventual = 'N') = 1 
+                                    THEN 'jugadora' 
+                                    ELSE 'jugadoras' 
+                                END
+                            ELSE 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND p.eventual = 'N') = 1 
+                                    THEN 'jugador' 
+                                    ELSE 'jugadores' 
+                                END
+                        END,
+                        ''
+                    )
+                ) AS jugadores,
+                CONCAT(
+                    IFNULL((SELECT COUNT(*) 
+                            FROM planteles p 
+                            WHERE p.id_equipo = e.id_equipo 
+                              AND p.id_categoria = e.id_categoria 
+                              AND p.eventual = 'S'), 0),
+                    ' ',
+                    IFNULL(
+                        CASE 
+                            WHEN c.genero = 'F' THEN 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND p.eventual = 'S') = 1 
+                                    THEN 'jugadora' 
+                                    ELSE 'jugadoras' 
+                                END
+                            ELSE 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND p.eventual = 'S') = 1 
+                                    THEN 'jugador' 
+                                    ELSE 'jugadores' 
+                                END
+                        END,
+                        ''
+                    )
+                ) AS jugadores_eventuales,
+                CONCAT(
+                    IFNULL((SELECT COUNT(*) 
+                            FROM planteles p 
+                            LEFT JOIN jugadores j ON p.id_jugador = j.id_jugador
+                            WHERE p.id_equipo = e.id_equipo 
+                              AND p.id_categoria = e.id_categoria 
+                              AND j.dni IS NULL), 0),
+                    ' ',
+                    IFNULL(
+                        CASE 
+                            WHEN c.genero = 'F' THEN 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            LEFT JOIN jugadores j ON p.id_jugador = j.id_jugador
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND j.dni IS NULL) = 1 
+                                    THEN 'jugadora' 
+                                    ELSE 'jugadoras' 
+                                END
+                            ELSE 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            LEFT JOIN jugadores j ON p.id_jugador = j.id_jugador
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND j.dni IS NULL) = 1 
+                                    THEN 'jugador' 
+                                    ELSE 'jugadores' 
+                                END
+                        END,
+                        ''
+                    )
+                ) AS jugadores_sin_dni,
+                z.id_zona,
+                e.descripcion,
+                CONCAT(c.nombre, ' ', z.nombre) AS nombre_categoria
+            FROM 
+                equipos AS e
+            LEFT JOIN 
+                categorias AS c ON c.id_categoria = e.id_categoria
+            LEFT JOIN 
+                zonas AS z ON z.id_zona = e.id_zona
+            INNER JOIN 
+                temporadas AS t ON t.id_equipo = e.id_equipo
+            WHERE 
+                t.id_categoria = ?
+            ORDER BY 
+                e.nombre;
+        `;
+        params = [id_categoria];
+    } else {
+        query = `
+            SELECT
+                e.id_equipo,
+                e.nombre,
+                e.img,
+                e.id_categoria,
+                CONCAT(
+                    IFNULL((SELECT COUNT(*) 
+                            FROM planteles p 
+                            WHERE p.id_equipo = e.id_equipo 
+                              AND p.id_categoria = e.id_categoria 
+                              AND p.eventual = 'N'), 0),
+                    ' ',
+                    IFNULL(
+                        CASE 
+                            WHEN c.genero = 'F' THEN 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND p.eventual = 'N') = 1 
+                                    THEN 'jugadora' 
+                                    ELSE 'jugadoras' 
+                                END
+                            ELSE 
+                                CASE WHEN (SELECT COUNT(*) 
+                                            FROM planteles p 
+                                            WHERE p.id_equipo = e.id_equipo 
+                                              AND p.id_categoria = e.id_categoria 
+                                              AND p.eventual = 'N') = 1 
+                                    THEN 'jugador' 
+                                    ELSE 'jugadores' 
+                                END
+                        END,
+                        ''
+                    )
+                ) AS jugadores,
+                CONCAT(c.nombre, ' ', z.nombre) AS nombre_categoria
+            FROM 
+                equipos AS e
+            LEFT JOIN 
+                categorias AS c ON c.id_categoria = e.id_categoria
+            LEFT JOIN 
+                zonas AS z ON z.id_zona = e.id_zona
+            ORDER BY 
+                e.nombre;
+        `;
+    }
+
+    db.query(query, params, (err, result) => {
+        if (err) {
+            console.error("Error en la consulta:", err);
+            return res.status(500).send('Error interno del servidor');
+        }
         res.send(result);
     });
 };

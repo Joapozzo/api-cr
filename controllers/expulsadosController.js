@@ -1,8 +1,10 @@
 const db = require('../utils/db');
 
 const getExpulsados = (req, res) => {
-    db.query(
-        `SELECT
+    const { id_categoria } = req.query; // Obtén el id_categoria desde los parámetros de la solicitud
+
+    let query = `
+        SELECT DISTINCT
             e.id_expulsion,
             e.id_jugador,
             e.id_partido,
@@ -28,9 +30,14 @@ const getExpulsados = (req, res) => {
             equipos AS eq ON eq.id_equipo = pl.id_equipo
         INNER JOIN
             ediciones AS ed ON ed.id_edicion = p.id_edicion
-        WHERE
-            p.id_categoria = pl.id_categoria`
-    , (err, result) => {
+    `;
+    
+    // Si id_categoria se recibe, agregar el filtro
+    if (id_categoria) {
+        query += ` WHERE p.id_categoria = ?`;
+    }
+
+    db.query(query, id_categoria ? [id_categoria] : [], (err, result) => {
         if (err) return res.status(500).send('Error interno del servidor');
         res.send(result);
     });
