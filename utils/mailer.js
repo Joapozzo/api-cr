@@ -32,7 +32,7 @@ const sendVerificationEmail = async (email, dni, nombre) => {
 
         // Enviar el correo
         await transporter.sendMail({
-          from: `"Copa Relámpago" <${process.env.ML_USER}>`,
+          from: process.env.ML_USER,
           to: email,
           subject: "Copa Relámpago - Mail de validación",
           html: html,
@@ -40,7 +40,8 @@ const sendVerificationEmail = async (email, dni, nombre) => {
 
         console.log('Correo de verificación enviado');
     } catch (error) {
-        console.error('Error al enviar el correo:', error);
+        console.error('Error al enviar el correo:', error.message);
+        console.error('Detalles del error:', error);        
         throw new Error('Error al enviar el correo');
     }
 };

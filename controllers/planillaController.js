@@ -396,9 +396,9 @@ const checkPartidosEventual = async (req, res) => {
   const sql = `SELECT COUNT(DISTINCT p.id_partido) AS partidos_jugados
 FROM formaciones f
 JOIN partidos p ON f.id_partido = p.id_partido
-WHERE f.id_jugador = (SELECT id_jugador FROM jugadores WHERE dni = ?)
-  AND p.id_categoria = (SELECT id_categoria FROM partidos WHERE id_partido = ?)
-  AND p.id_edicion = (SELECT id_edicion FROM partidos WHERE id_partido = ?)
+WHERE f.id_jugador IN (SELECT id_jugador FROM jugadores WHERE dni = ?)
+  AND p.id_categoria IN (SELECT id_categoria FROM partidos WHERE id_partido = ?)
+  AND p.id_edicion IN (SELECT id_edicion FROM partidos WHERE id_partido =  ?)
   AND p.estado = 'F';
 `;
   db.query(sql, [dni, id_partido, id_partido], (err, result) => {

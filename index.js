@@ -9,9 +9,9 @@ const helmet = require("helmet");
 dotenv.config();
 
 const allowedOrigins = [
-    'https://coparelampago.com', // Dominio de tu frontend en producción
-    'https://www.coparelampago.com', // Si usas www
-    'http://localhost:5173', // Para desarrollo
+    'https://coparelampago.com', //
+    'https://www.coparelampago.com',
+    'http://localhost:5173',
 ];
 
 const app = express();

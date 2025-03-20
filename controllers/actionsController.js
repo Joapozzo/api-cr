@@ -19,7 +19,7 @@ const insertarGol = (req, res) => {
           // Emitir el evento del socket después de que la operación termine
           // req.io.emit('insertar-gol', { id_partido, id_jugador, id_equipo, action, detail, minute });
 
-          res.status(200).json({ mensaje: 'Gol registrado exitosamente' });
+          res.status(200).json({ status: 200, mensaje: 'Gol registrado exitosamente' });
       }
   );
 };
@@ -43,7 +43,7 @@ const insertarAmarilla = async (req, res) => {
       }
       
       // req.io.emit('insertar-amarilla', { id_partido, id_jugador, id_equipo, action, minute });
-      res.status(200).json({mensaje: 'Amarilla registrada exitosamente'});
+      res.status(200).json({status: 200, mensaje: 'Amarilla registrada exitosamente'});
 
       // Contar amarillas 
       const sql = 'SELECT amarillas FROM formaciones WHERE id_partido = ? AND id_jugador = ?'
@@ -81,7 +81,7 @@ const insertarRoja = (req, res) => {
           // Emitir el evento del socket después de que la operación termine
           // req.io.emit('insertar-roja', { id_partido, id_jugador, id_equipo, action, detail, minute });
 
-          res.status(200).json({ mensaje: 'Roja registrada exitosamente' });
+          res.status(200).json({ status: 200, mensaje: 'Roja registrada exitosamente' });
       }
   );
 };
@@ -456,8 +456,8 @@ const borrarFirmaJugador = (req, res) => {
           .status(500)
           .json({mensaje: "Error al borrar el dorsal del jugador"});
       }
-  
-      res.status(200).json({mensaje: "Dorsal eliminado correctamente"});
+
+      res.status(200).json({status: 200, mensaje: "Dorsal eliminado correctamente"});
     });
 };
 
