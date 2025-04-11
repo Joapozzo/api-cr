@@ -1,7 +1,8 @@
 const db = require('../utils/db');
 
 const getEquipos = (req, res) => {
-    const { id_categoria } = req.query; // Obtiene id_categoria desde los parámetros de consulta
+    const { id_categoria } = req.query;
+    
     let query;
     let params = [];
 
