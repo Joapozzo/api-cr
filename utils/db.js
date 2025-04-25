@@ -1,5 +1,5 @@
-const mysql = require('mysql');
-const dotenv = require('dotenv');
+const mysql = require("mysql");
+const dotenv = require("dotenv");
 
 dotenv.config();
 
@@ -18,80 +18,95 @@ const dbConfig = {
 
 const pool = mysql.createPool(dbConfig);
 
-pool.on('connection', (connection) => {
-    console.log('✅ Nueva conexión establecida a MySQL.');
-    
-    // Evitar que se cierren conexiones inactivas en Railway
-    // connection.query('SET SESSION wait_timeout = 28800;'); 
-    // connection.query('SET SESSION interactive_timeout = 28800;');
+// Evento cuando se establece una nueva conexión
+pool.on("connection", (connection) => {
+  console.log("✅ Nueva conexión establecida a MySQL.");
 
-    connection.on('error', (err) => {
-        console.error('❌ Error en la conexión MySQL:', err);
-        if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
-            console.log('🔄 Intentando reconectar a MySQL...');
-            handleDisconnect();
-        }
-    });
+  // Ajustes de sesión (puedes ajustarlos si usas Railway o servidores con timeouts específicos)
+  // connection.query('SET SESSION wait_timeout = 28800;');
+  // connection.query('SET SESSION interactive_timeout = 28800;');
 
-    connection.on('end', () => {
-        console.warn('⚠️ Conexión MySQL terminada.');
-    });
+  // Manejo de errores en la conexión
+  connection.on("error", (err) => {
+    console.error("❌ Error en la conexión MySQL:", err);
+    if (err.code === "PROTOCOL_CONNECTION_LOST" || err.code === "ECONNRESET") {
+      console.log("🔄 Intentando reconectar a MySQL...");
+      handleDisconnect();
+    }
+  });
+
+  // Evento cuando la conexión termina
+  connection.on("end", () => {
+    console.warn("⚠️ Conexión MySQL terminada.");
+  });
 });
 
-pool.getConnection((err, connection) => {
+// Función para obtener y usar una conexión
+function useConnection(callback) {
+  pool.getConnection((err, connection) => {
     if (err) {
-        console.error("❌ Error obteniendo conexión:", err);
-        return;
+      console.error("❌ Error obteniendo conexión:", err);
+      return;
     }
 
-    connection.query("SELECT * FROM etapas", (error, results) => {
-        if (error) {
-            console.error("Error en la consulta:", error);
-        } else {
-            console.log(results);
-        }
+    callback(connection);
 
-        if (connection.threadId) {
-            console.log(`🛑 Cerrando conexión inactiva ${connection.threadId}`);
-            connection.destroy(); // 🔴 Esto elimina completamente la conexión si ya no se necesita
-        } else {
-            connection.release(); // ✅ Si la conexión aún se necesita, solo la liberamos
-        }
-    });
-});
-
-function handleDisconnect() {
-    pool.getConnection((err, connection) => {
-        if (err) {
-            console.error("❌ Error en la conexión a MySQL, reintentando en 5s:", err);
-            setTimeout(handleDisconnect, 5000);
-            return;
-        }
-
-        console.log("✅ Conexión a MySQL activa.");
-        connection.release();
-    });
+    // Liberamos la conexión después de la consulta
+    if (connection.threadId) {
+      console.log(`🛑 Cerrando conexión inactiva ${connection.threadId}`);
+      connection.release();
+    } else {
+      connection.release(); // Si la conexión aún se necesita, solo liberarla
+    }
+  });
 }
 
-handleDisconnect();
+// Ejemplo de uso de la conexión
+useConnection((connection) => {
+  connection.query("SELECT * FROM etapas", (error, results) => {
+    if (error) {
+      console.error("Error en la consulta:", error);
+    } else {
+      console.log(results);
+    }
+  });
+});
 
-// 🔄 Cada 5 minutos (300000ms) revisa conexiones inactivas y las cierra
+// Función para manejar la desconexión y reconexión
+function handleDisconnect() {
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error(
+        "❌ Error en la conexión a MySQL, reintentando en 5s:",
+        err
+      );
+      setTimeout(handleDisconnect, 5000); // Reintentar después de 5 segundos
+      return;
+    }
+
+    console.log("✅ Conexión a MySQL activa.");
+    connection.release(); // Liberamos la conexión una vez reconectados
+  });
+}
+
+// Función para verificar conexiones inactivas cada 5 minutos
 setInterval(() => {
-    pool.getConnection((err, connection) => {
-        if (err) {
-            console.error("❌ Error obteniendo conexión:", err);
-            return;
-        }
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("❌ Error obteniendo conexión:", err);
+      return;
+    }
 
-        connection.query("SELECT 1", (error) => {
-            if (error) {
-                console.error("❌ Error en la conexión, cerrando...");
-                connection.destroy(); // 🔴 Cerrar la conexión si está fallando
-            } else {
-                connection.release(); // ✅ Mantener viva la conexión si funciona
-            }
-        });
+    // Hacemos una consulta ligera para verificar la conexión
+    connection.query("SELECT 1", (error) => {
+      if (error) {
+        console.error("❌ Error en la conexión, cerrando...");
+        connection.release(); // Liberar conexión si hay error
+      } else {
+        connection.release(); // Mantener viva la conexión si está activa
+      }
     });
-}, 300000); 
+  });
+}, 300000); // Verificar cada 5 minutos
 
 module.exports = pool;
