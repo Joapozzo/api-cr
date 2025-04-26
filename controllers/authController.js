@@ -7,7 +7,6 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-
 const checkEmail = (req, res) => {
     const { email, bandera } = req.body;
 
