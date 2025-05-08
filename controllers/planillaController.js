@@ -1,6 +1,6 @@
-const db = require("../utils/db");
+const { query } = require("../utils/db");
 
-const getPartidosPlanillero = (req, res) => {
+const getPartidosPlanillero = async (req, res) => {
   const { id_planillero } = req.query;
   const sql = `SELECT
     p.id_edicion,
@@ -65,23 +65,25 @@ LEFT JOIN
 LEFT JOIN
     ediciones e ON p.id_edicion = e.id_edicion
 WHERE id_planillero = ?`;
-  db.query(sql, [id_planillero], (err, result) => {
-    if (err) {
-      console.error("Error al traer los partidos del planillero:", err);
-      return res
-        .status(500)
-        .json({ mensaje: "Error al traer los partidos del planillero" });
+
+  try {
+    if (!id_planillero) {
+      return res.status(400).json({ mensaje: "Falta el id de la partida" });
     }
+    const result = await query(sql, [id_planillero]);
     if (result.length === 0) {
       return res
         .status(404)
         .json({ mensaje: "No se encontraron partidos para el planillero" });
     }
     return res.status(200).json(result);
-  });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al traer los partidos del planillero" });
+    console.error("Error al traer los partidos del planillero:", error);
+  }
 };
 
-const getPartidosPlanillados = (req, res) => {
+const getPartidosPlanillados = async (req, res) => {
   const { id_planillero, limite } = req.query;
   const sql = `SELECT
     p.id_edicion,
@@ -148,57 +150,59 @@ LEFT JOIN
 WHERE id_planillero = ?
   AND p.estado IN ('S', 'F')
 LIMIT ?`;
-  db.query(sql, [id_planillero, limite], (err, result) => {
-    if (err) {
-      console.error("Error al traer los partidos del planillero:", err);
-      return res
-        .status(500)
-        .json({ mensaje: "Error al traer los partidos del planillero" });
+
+  try {
+    if (!id_planillero) {
+      return res.status(400).json({ mensaje: "Falta el id de la partida" });
     }
+    const result = await query(sql, [id_planillero, limite]);
     if (result.length === 0) {
       return res
         .status(404)
         .json({ mensaje: "No se encontraron partidos para el planillero" });
     }
     return res.status(200).json(result);
-  });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al traer los partidos del planillero" });
+    console.error("Error al traer los partidos del planillero:", error);
+  }
 };
 
-const getPartidoIncidencias = (req, res) => {
+const getPartidoIncidencias = async (req, res) => {
   const { id_partido } = req.query;
+
   const sql = `
         CALL sp_partidos_incidencias(?)
     `;
-  db.query(sql, [id_partido], (err, result) => {
-    if (err) {
-      console.error("Error al traer los incidencias del partido:", err);
-      return res
-        .status(500)
-        .json({ mensaje: "Error al traer los incidencias del partido" });
+
+    try {
+      if (!id_partido) {
+        return res.status(400).json({ mensaje: "Falta el id del partido" });
+      }
+
+      const result = await query(sql, [id_partido]);
+      if (result.length === 0) {
+        return res
+          .status(404)
+          .json({ mensaje: "No se encontraron incidencias para el partido" });
+      }
+      return res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({ mensaje: "Error al traer los incidencias del partido" });
     }
-    if (result.length === 0) {
-      return res
-        .status(404)
-        .json({ mensaje: "No se encontraron incidencias para el partido" });
-    }
-    return res.status(200).json(result);
-  });
 };
 
-const getPartidoFormaciones = (req, res) => {
+const getPartidoFormaciones = async (req, res) => {
   const { id_partido } = req.query;
+  try {
 
-  db.query("CALL sp_partidos_formaciones(?)", [id_partido], (err, result) => {
-    if (err) {
-      console.error(
-        "Error al ejecutar el procedimiento almacenado de formaciones:",
-        err
-      );
-      if (err.sqlState === "45000") {
-        return res.status(400).send(err.sqlMessage);
-      }
-      return res.status(500).send("Error interno del servidor");
+    if (!id_partido) {
+      return res.status(400).send("Falta el id del partido");
     }
+
+    const result = await query("CALL sp_partidos_formaciones(?)", [
+      id_partido,
+    ]);
 
     if (!result || result.length === 0) {
       return res
@@ -206,41 +210,30 @@ const getPartidoFormaciones = (req, res) => {
         .send("No se encontraron incidencias para el partido especificado.");
     }
     const [rows] = result;
-
     res.status(200).json(rows);
-  });
+  } catch (error) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const firmaJugador = (req, res) => {
+const firmaJugador = async (req, res) => {
   const { id_partido, id_jugador, dorsal } = req.body;
 
-  if (!id_partido || !id_jugador || !dorsal) {
-    return res.status(400).send("Faltan datos necesarios");
-  }
-
-  const query = `
-          INSERT INTO formaciones (id_partido, id_jugador, dorsal)
-          VALUES (?, ?, ?)
-          ON DUPLICATE KEY UPDATE dorsal = VALUES(dorsal)
-      `;
-
-  db.query(query, [id_partido, id_jugador, dorsal], (err, result) => {
-    if (err) {
-      console.error("Error al insertar el dorsal en la base de datos:", err);
-      return res.status(500).send("Error al guardar el dorsal");
+  const SqlQuery = `
+  INSERT INTO formaciones (id_partido, id_jugador, dorsal)
+  VALUES (?, ?, ?)
+  ON DUPLICATE KEY UPDATE dorsal = VALUES(dorsal)
+  `;
+  
+  try {
+    if (!id_partido || !id_jugador || !dorsal) {
+      return res.status(400).send("Faltan datos necesarios");
     }
-
-    // Emitir el evento de dorsal asignado a través de WebSocket
-    // const dorsalData = { id_partido, id_jugador, dorsal };
-    // if (req.io && typeof req.io.emit === "function") {
-    //   req.io.emit("dorsalAsignado", dorsalData);
-    // } else {
-    //   console.error("Socket.io no está disponible");
-    //   return res.status(500).send("Error en el servidor de WebSocket");
-    // }
-
+    await query(SqlQuery, [id_partido, id_jugador, dorsal]);
     res.status(200).send("Dorsal guardado correctamente");
-  });
+  } catch (error) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
 const crearJugadorEventual = async (req, res) => {
@@ -256,18 +249,6 @@ const crearJugadorEventual = async (req, res) => {
   } = req.body;
 
   try {
-    // Función auxiliar para ejecutar consultas SQL
-    const query = (sql, params) => {
-      return new Promise((resolve, reject) => {
-        db.query(sql, params, (error, results) => {
-          if (error) {
-            return reject(error);
-          }
-          resolve(results);
-        });
-      });
-    };
-
     // 1. Verificar si el jugador ya existe en la tabla jugadores
     let id_jugador;
     const jugadores = await query(
@@ -276,15 +257,13 @@ const crearJugadorEventual = async (req, res) => {
     );
 
     if (jugadores.length > 0) {
-      // Jugador ya existe
       id_jugador = jugadores[0].id_jugador;
     } else {
-      // Crear jugador nuevo y obtener su id
       const resultadoJugador = await query(
         `INSERT INTO jugadores (dni, nombre, apellido, estado) VALUES (?, ?, ?, ?)`,
         [dni, nombre, apellido, estado]
       );
-      id_jugador = resultadoJugador.insertId; // ID del nuevo jugador
+      id_jugador = resultadoJugador.insertId;
     }
 
     console.log("ID del jugador:", id_jugador);
@@ -310,12 +289,10 @@ const crearJugadorEventual = async (req, res) => {
     );
 
     if (planteles.length > 0) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "El jugador ya está registrado en este equipo",
-        });
+      return res.status(409).json({
+        success: false,
+        message: "El jugador ya está registrado en este equipo",
+      });
     }
 
     // 4. Insertar el jugador en la tabla planteles
@@ -332,12 +309,10 @@ const crearJugadorEventual = async (req, res) => {
     );
 
     if (formaciones.length > 0) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "El jugador ya está registrado en este partido",
-        });
+      return res.status(409).json({
+        success: false,
+        message: "El jugador ya está registrado en este partido",
+      });
     }
 
     // 6. Insertar en la tabla formaciones
@@ -346,19 +321,11 @@ const crearJugadorEventual = async (req, res) => {
       [id_partido, id_jugador, dorsal]
     );
 
-    // Emitir evento
-    req.io.emit("jugadorEventualCreado", {
-      id_jugador,
-      id_equipo,
-      nombre,
-      apellido,
-      dorsal,
-    });
-
     // Responder con éxito
-    return res
-      .status(201)
-      .json({ success: true, message: "Jugador eventual creado exitosamente" });
+    return res.status(201).json({
+      success: true,
+      message: "Jugador eventual creado exitosamente",
+    });
   } catch (error) {
     console.error("Error inesperado:", error);
     return res.status(500).json({ success: false, message: error.message });
@@ -372,131 +339,143 @@ const getEdicion = async (req, res) => {
     return res.status(400).json({ mensaje: "Falta el id del edicion" });
   }
 
-  const sql = `SELECT nombre, temporada, cantidad_eventuales, partidos_eventuales FROM ediciones WHERE id_edicion = ?`;
-  db.query(sql, [id_edicion], (err, result) => {
-    if (err) {
-      console.error("Error al traer la edicion:", err);
-      return res.status(500).json({ mensaje: "Error al traer la edicion" });
-    }
+  try {
+    const sql = `
+      SELECT nombre, temporada, cantidad_eventuales, partidos_eventuales 
+      FROM ediciones 
+      WHERE id_edicion = ?
+    `;
+    const result = await query(sql, [id_edicion]);
+
     if (result.length === 0) {
       return res.status(404).json({ mensaje: "No se encontró la edición" });
     }
+
     return res.status(200).json(result);
-  });
+  } catch (err) {
+    console.error("Error al traer la edicion:", err);
+    return res.status(500).json({ mensaje: "Error al traer la edicion" });
+  }
 };
 
 const checkPartidosEventual = async (req, res) => {
   const { id_partido, dni } = req.query;
-  console.log(id_partido, dni);
 
   if (!id_partido || !dni) {
     return res.status(400).json({ mensaje: "Faltan parámetros" });
   }
 
-  const sql = `SELECT COUNT(DISTINCT p.id_partido) AS partidos_jugados
-FROM formaciones f
-JOIN partidos p ON f.id_partido = p.id_partido
-WHERE f.id_jugador IN (SELECT id_jugador FROM jugadores WHERE dni = ?)
-  AND p.id_categoria IN (SELECT id_categoria FROM partidos WHERE id_partido = ?)
-  AND p.id_edicion IN (SELECT id_edicion FROM partidos WHERE id_partido =  ?)
-  AND p.estado = 'F';
-`;
-  db.query(sql, [dni, id_partido, id_partido], (err, result) => {
-    if (err) {
-      console.error(
-        "Error al ejecutar la consulta de checkPartidosEventual:",
-        err
-      );
-      return res.status(500).json({ mensaje: "Error interno del servidor" });
-    }
+  try {
+    const sql = `
+      SELECT COUNT(DISTINCT p.id_partido) AS partidos_jugados
+      FROM formaciones f
+      JOIN partidos p ON f.id_partido = p.id_partido
+      WHERE f.id_jugador IN (SELECT id_jugador FROM jugadores WHERE dni = ?)
+        AND p.id_categoria IN (SELECT id_categoria FROM partidos WHERE id_partido = ?)
+        AND p.id_edicion IN (SELECT id_edicion FROM partidos WHERE id_partido = ?)
+        AND p.estado = 'F'
+    `;
+    const result = await query(sql, [dni, id_partido, id_partido]);
 
     if (result.length === 0) {
       return res.status(404).json({ mensaje: "No se encontró la edición" });
     }
+
     return res.status(200).json(result[0]);
-  });
+  } catch (err) {
+    console.error("Error al ejecutar la consulta de checkPartidosEventual:", err);
+    return res.status(500).json({ mensaje: "Error interno del servidor" });
+  }
 };
 
-const getJugadoresDestacados = (req, res) => {
+const getJugadoresDestacados = async (req, res) => {
   const { id_partido } = req.query;
 
   if (!id_partido) {
     return res.status(400).json({ mensaje: "Falta el id del partido" });
   }
 
-  const sql = `SELECT
-    jd.id_partido,
-    jd.id_jugador,
-    CONCAT(j.nombre, ' ', j.apellido, ' - ', e.nombre) AS nombre_completo,
-    jd.id_jugador AS jugador_destacado,
-    jd.posicion
-FROM 
-    jugadores_destacados AS jd
-JOIN 
-    jugadores AS j ON jd.id_jugador = j.id_jugador
-JOIN 
-    partidos AS p ON p.id_partido = jd.id_partido
-JOIN
-    equipos AS e ON jd.id_equipo = e.id_equipo
-WHERE 
-    p.id_partido = ?
-ORDER BY 
-    jd.posicion ASC;
-`;
-  db.query(sql, [id_partido], (err, result) => {
-    if (err) {
-      console.error("Error al traer los jugadores destacados:", err);
-      return res
-        .status(500)
-        .json({ mensaje: "Error al traer los jugadores destacados" });
-    }
+  try {
+    const sql = `
+      SELECT
+        jd.id_partido,
+        jd.id_jugador,
+        CONCAT(j.nombre, ' ', j.apellido, ' - ', e.nombre) AS nombre_completo,
+        jd.id_jugador AS jugador_destacado,
+        jd.posicion
+      FROM 
+        jugadores_destacados AS jd
+      JOIN 
+        jugadores AS j ON jd.id_jugador = j.id_jugador
+      JOIN 
+        partidos AS p ON p.id_partido = jd.id_partido
+      JOIN
+        equipos AS e ON jd.id_equipo = e.id_equipo
+      WHERE 
+        p.id_partido = ?
+      ORDER BY 
+        jd.posicion ASC;
+    `;
+
+    const result = await query(sql, [id_partido]);
+
     if (result.length === 0) {
       return res
         .status(404)
         .json({ mensaje: "No se encontraron jugadores destacados" });
     }
+
     return res.status(200).json(result);
-  });
+  } catch (err) {
+    console.error("Error al traer los jugadores destacados:", err);
+    return res
+      .status(500)
+      .json({ mensaje: "Error al traer los jugadores destacados" });
+  }
 };
 
-const getJugadoresDream = (req, res) => {
+const getJugadoresDream = async (req, res) => {
   const { id_categoria, jornada } = req.query;
 
   if (!id_categoria || !jornada) {
     return res.status(400).json({ mensaje: "Faltan datos" });
   }
 
-  const sql = `SELECT 
-    j.id_jugador,
-    j.nombre,
-    j.apellido,
-    jd.id_equipo,
-    p.jornada
-FROM 
-    jugadores_destacados AS jd
-INNER JOIN 
-    jugadores AS j ON jd.id_jugador = j.id_jugador
-INNER JOIN 
-    partidos AS p ON jd.id_partido = p.id_partido
-WHERE 
-    jd.id_categoria = ? 
-    AND p.jornada = ?
-    AND dt = 'N'
-  `;
-  db.query(sql, [id_categoria, jornada], (err, result) => {
-    if (err) {
-      console.error("Error obteniendo jugadores destacados:", err);
-      return res
-        .status(500)
-        .json({ mensaje: "Error obteniendo jugadores destacados" });
-    }
+  try {
+    const sql = `
+      SELECT 
+        j.id_jugador,
+        j.nombre,
+        j.apellido,
+        jd.id_equipo,
+        p.jornada
+      FROM 
+        jugadores_destacados AS jd
+      INNER JOIN 
+        jugadores AS j ON jd.id_jugador = j.id_jugador
+      INNER JOIN 
+        partidos AS p ON jd.id_partido = p.id_partido
+      WHERE 
+        jd.id_categoria = ? 
+        AND p.jornada = ?
+        AND dt = 'N'
+    `;
+
+    const result = await query(sql, [id_categoria, jornada]);
+
     if (result.length === 0) {
       return res
         .status(404)
         .json({ mensaje: "No se encontraron jugadores destacados" });
     }
+
     return res.status(200).json(result);
-  });
+  } catch (err) {
+    console.error("Error obteniendo jugadores destacados:", err);
+    return res
+      .status(500)
+      .json({ mensaje: "Error obteniendo jugadores destacados" });
+  }
 };
 
 const updateMvpPartido = async (req, res) => {
@@ -507,127 +486,99 @@ const updateMvpPartido = async (req, res) => {
   }
 
   try {
-    // 2. Eliminar jugador destacado en la tabla jugadores_destacados
     const updateQuery = `
-            UPDATE partidos
-            SET id_jugador_destacado = ?
-            WHERE id_partido = ?`;
+      UPDATE partidos
+      SET id_jugador_destacado = ?
+      WHERE id_partido = ?`;
 
-    await db.query(updateQuery, [id_jugador, id_partido]);
+    await query(updateQuery, [id_jugador, id_partido]);
 
-    const informacion = [id_partido, id_jugador];
-
-    req.io.emit("mvpActualizado", informacion);
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Se agrego correctamente el mvp al partido",
       status: 200,
     });
   } catch (error) {
-    console.error("Error al insertar mvp en el partido", error); // Log para el error específico
-    res.status(500).json({ error: "Error al insertar mvp en el partido" });
+    console.error("Error al insertar mvp en el partido", error);
+    return res.status(500).json({ error: "Error al insertar mvp en el partido" });
   }
 };
 
-const verificarJugadores = (req, res) => {
+const verificarJugadores = async (req, res) => {
   const { id_partido } = req.query;
 
   if (!id_partido) {
     return res.status(400).send("Falta el id del partido");
   }
 
-  // Consulta para obtener el estado del partido
-  const queryEstado = `
-        SELECT estado 
-        FROM partidos 
-        WHERE id_partido = ?
-    `;
+  try {
+    const queryEstado = `
+      SELECT estado 
+      FROM partidos 
+      WHERE id_partido = ?`;
 
-  db.query(queryEstado, [id_partido], (err, result) => {
-    if (err) {
-      console.error("Error al obtener el estado del partido:", err);
-      return res.status(500).send("Error al obtener el estado del partido");
-    }
+    const estadoResult = await query(queryEstado, [id_partido]);
 
-    if (result.length === 0) {
+    if (estadoResult.length === 0) {
       return res.status(404).send("Partido no encontrado");
     }
 
-    const estadoPartido = result[0].estado;
+    const estadoPartido = estadoResult[0].estado;
 
-    // Si el estado no es 'P', devolvemos que se puede comenzar
     if (estadoPartido !== "P") {
       return res.status(200).json({ sePuedeComenzar: true });
     }
 
-    // Si el estado es 'P', procedemos a contar los jugadores
     const queryEquipos = `
-            SELECT id_equipoLocal, id_equipoVisita 
-            FROM partidos 
-            WHERE id_partido = ?
-        `;
+      SELECT id_equipoLocal, id_equipoVisita 
+      FROM partidos 
+      WHERE id_partido = ?`;
 
-    db.query(queryEquipos, [id_partido], (err, result) => {
-      if (err) {
-        console.error("Error al obtener los equipos del partido:", err);
-        return res.status(500).send("Error al obtener los equipos del partido");
-      }
+    const equiposResult = await query(queryEquipos, [id_partido]);
+    const { id_equipoLocal, id_equipoVisita } = equiposResult[0];
 
-      const { id_equipoLocal, id_equipoVisita } = result[0];
+    const queryJugadores = `
+      SELECT
+        (SELECT COUNT(*) FROM formaciones WHERE id_partido = ? AND id_jugador IN (SELECT id_jugador FROM planteles WHERE id_equipo = ?)) AS jugadores_local,
+        (SELECT COUNT(*) FROM formaciones WHERE id_partido = ? AND id_jugador IN (SELECT id_jugador FROM planteles WHERE id_equipo = ?)) AS jugadores_visitante`;
 
-      // Consulta para contar los jugadores por equipo en el partido
-      const queryJugadores = `
-                SELECT
-                    (SELECT COUNT(*) FROM formaciones WHERE id_partido = ? AND id_jugador IN (SELECT id_jugador FROM planteles WHERE id_equipo = ?)) AS jugadores_local,
-                    (SELECT COUNT(*) FROM formaciones WHERE id_partido = ? AND id_jugador IN (SELECT id_jugador FROM planteles WHERE id_equipo = ?)) AS jugadores_visitante
-            `;
+    const jugadoresResult = await query(queryJugadores, [
+      id_partido,
+      id_equipoLocal,
+      id_partido,
+      id_equipoVisita,
+    ]);
 
-      db.query(
-        queryJugadores,
-        [id_partido, id_equipoLocal, id_partido, id_equipoVisita],
-        (err, result) => {
-          if (err) {
-            console.error("Error al verificar los jugadores:", err);
-            return res.status(500).send("Error al verificar los jugadores");
-          }
+    const { jugadores_local, jugadores_visitante } = jugadoresResult[0];
 
-          const { jugadores_local, jugadores_visitante } = result[0];
-
-          if (jugadores_local >= 5 && jugadores_visitante >= 5) {
-            return res.status(200).json({ sePuedeComenzar: true });
-          } else {
-            return res.status(200).json({
-              sePuedeComenzar: false,
-              jugadores_local,
-              jugadores_visitante,
-            });
-          }
-        }
-      );
-    });
-  });
+    if (jugadores_local >= 5 && jugadores_visitante >= 5) {
+      return res.status(200).json({ sePuedeComenzar: true });
+    } else {
+      return res.status(200).json({
+        sePuedeComenzar: false,
+        jugadores_local,
+        jugadores_visitante,
+      });
+    }
+  } catch (err) {
+    console.error("Error al verificar los jugadores:", err);
+    return res.status(500).send("Error interno del servidor");
+  }
 };
 
-const actualizarEstadoPartido = (req, res) => {
+const actualizarEstadoPartido = async (req, res) => {
   const { id_partido } = req.body;
 
   if (!id_partido) {
     return res.status(400).json({ mensaje: "Falta el id del partido" });
   }
 
-  // Consulta para obtener el estado actual del partido
-  const queryEstado = `
+  try {
+    const queryEstado = `
       SELECT estado FROM partidos
       WHERE id_partido = ?
-  `;
+    `;
 
-  db.query(queryEstado, [id_partido], (err, result) => {
-    if (err) {
-      console.error("Error al obtener el estado del partido:", err);
-      return res
-        .status(500)
-        .json({ mensaje: "Error al obtener el estado del partido" });
-    }
+    const result = await query(queryEstado, [id_partido]);
 
     if (result.length === 0) {
       return res.status(404).json({ mensaje: "Partido no encontrado" });
@@ -638,13 +589,13 @@ const actualizarEstadoPartido = (req, res) => {
     const estadoActual = result[0].estado;
 
     if (estadoActual === "P") {
-      nuevoEstado = "C"; // Comenzar el partido
+      nuevoEstado = "C";
       palabra = "Comenzado";
     } else if (estadoActual === "C") {
-      nuevoEstado = "T"; // Terminar el partido
+      nuevoEstado = "T";
       palabra = "Terminado";
     } else if (estadoActual === "T") {
-      nuevoEstado = "F"; // Finalizar el partido
+      nuevoEstado = "F";
       palabra = "Cargado";
     } else {
       return res
@@ -652,40 +603,35 @@ const actualizarEstadoPartido = (req, res) => {
         .json({ mensaje: "Estado del partido no válido para la transición" });
     }
 
-    // Construir la consulta para actualizar el estado y los goles
     let queryUpdate = `
-          UPDATE partidos
-          SET estado = ?
-      `;
+      UPDATE partidos
+      SET estado = ?`;
     const params = [nuevoEstado];
 
-    // Si el nuevo estado es "C", también se deben establecer los goles a 0
     if (nuevoEstado === "C") {
       queryUpdate += `,
-          goles_local = 0,
-          goles_visita = 0`;
+        goles_local = 0,
+        goles_visita = 0`;
     }
 
     queryUpdate += ` WHERE id_partido = ?`;
     params.push(id_partido);
 
-    db.query(queryUpdate, params, (err, result) => {
-      if (err) {
-        console.error("Error al actualizar el estado del partido:", err);
-        return res
-          .status(500)
-          .json({ mensaje: "Error al actualizar el estado del partido" });
-      }
+    await query(queryUpdate, params);
 
-      // Emitir el nuevo estado del partido a través de WebSocket
-      // req.io.emit("nuevo-estado-partido", { id_partido, nuevoEstado });
-
-      res.status(200).json({ mensaje: `Partido ${palabra} con éxito`, data: { id_partido, nuevoEstado }});
+    return res.status(200).json({
+      mensaje: `Partido ${palabra} con éxito`,
+      data: { id_partido, nuevoEstado },
     });
-  });
+  } catch (err) {
+    console.error("Error al actualizar el estado del partido:", err);
+    return res
+      .status(500)
+      .json({ mensaje: "Error al actualizar el estado del partido" });
+  }
 };
 
-const updatePartido = (req, res) => {
+const updatePartido = async (req, res) => {
   const { data } = req.body;
   const {
     descripcion,
@@ -700,23 +646,18 @@ const updatePartido = (req, res) => {
     return res.status(400).json({ mensaje: "Falta el id_partido" });
   }
 
-  // Asigna null si penales son 0
   const penLocal = pen_local === 0 ? null : pen_local;
   const penVisita = pen_visita === 0 ? null : pen_visita;
 
-  // Obtener la zona del partido
-  const sqlZona = `
+  try {
+    const sqlZona = `
       SELECT p.id_zona, z.tipo_zona, z.campeon
       FROM partidos p
       JOIN zonas z ON p.id_zona = z.id_zona
       WHERE p.id_partido = ?
-  `;
+    `;
 
-  db.query(sqlZona, [id_partido], (err, results) => {
-    if (err) {
-      console.error("Error al obtener la zona:", err);
-      return res.status(500).json({ mensaje: "Error interno del servidor" });
-    }
+    const results = await query(sqlZona, [id_partido]);
 
     if (results.length === 0) {
       return res.status(404).json({ mensaje: "Partido no encontrado" });
@@ -724,127 +665,100 @@ const updatePartido = (req, res) => {
 
     const { id_zona, tipo_zona, campeon } = results[0];
 
-    // **Actualizar el partido**
     const sqlUpdatePartido = `
-          UPDATE partidos
-          SET descripcion = ?, pen_local = ?, pen_visita = ?
-          WHERE id_partido = ?
-      `;
+      UPDATE partidos
+      SET descripcion = ?, pen_local = ?, pen_visita = ?
+      WHERE id_partido = ?
+    `;
 
-    db.query(
-      sqlUpdatePartido,
-      [descripcion, penLocal, penVisita, id_partido],
-      (err, result) => {
-        if (err) {
-          console.error("Error al actualizar partido:", err);
-          return res
-            .status(500)
-            .json({ mensaje: "Error interno del servidor" });
-        }
+    await query(sqlUpdatePartido, [
+      descripcion,
+      penLocal,
+      penVisita,
+      id_partido,
+    ]);
 
-        // **Verificar si hay que actualizar el campeón**
-        if (tipo_zona === "eliminacion-directa" && campeon === "S") {
-          let idEquipoGanador = null;
+    if (tipo_zona === "eliminacion-directa" && campeon === "S") {
+      let idEquipoGanador = null;
 
-          if (goles_local > goles_visita) {
-            idEquipoGanador = data.id_equipoLocal;
-          } else if (goles_visita > goles_local) {
-            idEquipoGanador = data.id_equipoVisita;
-          } else if (penLocal !== null && penVisita !== null) {
-            idEquipoGanador =
-              penLocal > penVisita ? data.id_equipoLocal : data.id_equipoVisita;
-          }
-
-          if (idEquipoGanador) {
-            const sqlUpdateZona = `
-                      UPDATE zonas
-                      SET id_equipo_campeon = ?
-                      WHERE id_zona = ?
-                  `;
-
-            db.query(
-              sqlUpdateZona,
-              [idEquipoGanador, id_zona],
-              (err, result) => {
-                if (err) {
-                  console.error("Error al actualizar campeón de zona:", err);
-                  return res
-                    .status(500)
-                    .json({ mensaje: "Error al actualizar campeón" });
-                }
-                return res
-                  .status(200)
-                  .json({
-                    mensaje: "Partido y campeón actualizados exitosamente",
-                  });
-              }
-            );
-          } else {
-            return res
-              .status(200)
-              .json({
-                mensaje: "Partido actualizado, pero no se determinó campeón",
-              });
-          }
-        } else {
-          return res
-            .status(200)
-            .json({ mensaje: "Partido actualizado exitosamente" });
-        }
+      if (goles_local > goles_visita) {
+        idEquipoGanador = data.id_equipoLocal;
+      } else if (goles_visita > goles_local) {
+        idEquipoGanador = data.id_equipoVisita;
+      } else if (penLocal !== null && penVisita !== null) {
+        idEquipoGanador =
+          penLocal > penVisita ? data.id_equipoLocal : data.id_equipoVisita;
       }
-    );
-  });
+
+      if (idEquipoGanador) {
+        const sqlUpdateZona = `
+          UPDATE zonas
+          SET id_equipo_campeon = ?
+          WHERE id_zona = ?
+        `;
+
+        await query(sqlUpdateZona, [idEquipoGanador, id_zona]);
+
+        return res.status(200).json({
+          mensaje: "Partido y campeón actualizados exitosamente",
+        });
+      } else {
+        return res.status(200).json({
+          mensaje: "Partido actualizado, pero no se determinó campeón",
+        });
+      }
+    } else {
+      return res
+        .status(200)
+        .json({ mensaje: "Partido actualizado exitosamente" });
+    }
+  } catch (err) {
+    console.error("Error al actualizar partido:", err);
+    return res.status(500).json({ mensaje: "Error interno del servidor" });
+  }
 };
 
-const suspenderPartido = (req, res) => {
+const suspenderPartido = async (req, res) => {
   const { goles_local, goles_visita, descripcion, estado, id_partido } = req.body;
-  console.log("Request received:", req.body);
 
   if (!id_partido) {
     return res.status(400).json({ mensaje: "ID de partido es requerido" });
   }
 
-  if (estado === "A") {
-    const sql = `
-      UPDATE partidos
-      SET 
-          estado = ?
-      WHERE id_partido = ?
-    `;
-    db.query(sql, [estado, id_partido], (err, result) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).json({ mensaje: "Error interno del servidor" });
-      }
+  try {
+    if (estado === "A") {
+      const sql = `
+        UPDATE partidos
+        SET estado = ?
+        WHERE id_partido = ?
+      `;
+      await query(sql, [estado, id_partido]);
 
-      req.io.emit("suspender-partido", { id_partido, estado });
-      res.json({ mensaje: "Partido postergado exitosamente" });
-    });
-  } else {
-    const sql = `
-      UPDATE partidos
-      SET 
+      return res.json({ mensaje: "Partido postergado exitosamente" });
+    } else {
+      const sql = `
+        UPDATE partidos
+        SET 
           goles_local = ?, 
           goles_visita = ?, 
           descripcion = ?,
           estado = ?
-      WHERE id_partido = ?
-    `;
-    db.query(
-      sql,
-      [goles_local, goles_visita, descripcion, estado, id_partido],
-      (err, result) => {
-        if (err) {
-          console.error("Database error:", err);
-          return res
-            .status(500)
-            .json({ mensaje: "Error interno del servidor" });
-        }
-        const nuevoEstado = estado;
-        req.io.emit("nuevo-estado-partido", { id_partido, nuevoEstado });
-        res.json({ mensaje: "Partido suspendido exitosamente" });
-      }
-    );
+        WHERE id_partido = ?
+      `;
+
+      await query(sql, [
+        goles_local,
+        goles_visita,
+        descripcion,
+        estado,
+        id_partido,
+      ]);
+
+      return res.json({ mensaje: "Partido suspendido exitosamente" });
+    }
+  } catch (err) {
+    console.error("Database error:", err);
+    return res.status(500).json({ mensaje: "Error interno del servidor" });
   }
 };
 

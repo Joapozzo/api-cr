@@ -1,5 +1,8 @@
 const FTPClient = require("ftp");
 const fs = require("fs");
+const dotenv = require("dotenv");
+
+dotenv.config();
 
 const uploadToFTP = (filePath, remotePath) => {
   return new Promise((resolve, reject) => {
@@ -21,9 +24,9 @@ const uploadToFTP = (filePath, remotePath) => {
     });
 
     client.connect({
-      host: "46.202.145.151",
-      user: "u117252722.coparelampago.com",
-      password: "~Is2JoT|J>V2Ir[I",
+      host: process.env.FTP_HOST,
+      user: process.env.FTP_USER,
+      password: process.env.FTP_PASSWORD,
     });
   });
 };
@@ -52,7 +55,7 @@ const uploadToFTP = (filePath, remotePath) => {
 //         console.error("Error en la subida de imagen:", error);
 //         res.status(500).json({ error: "Error al subir la imagen." });
 //     }
-// };
+// }
 
 exports.uploadImage = async (req, res) => {
   try {
@@ -95,12 +98,72 @@ exports.uploadImage = async (req, res) => {
     });
 
     client.connect({
-      host: "46.202.145.151",
-      user: "u117252722.coparelampago.com",
-      password: "~Is2JoT|J>V2Ir[I",
+      host: process.env.FTP_HOST,
+      user: process.env.FTP_USER,
+      password: process.env.FTP_PASSWORD,
     });
   } catch (error) {
     console.error("Error general en upload:", error);
     res.status(500).json({ error: "Error al procesar la imagen." });
+  }
+};
+
+exports.deleteImage = async (req, res) => {
+  const { directory, fileName } = req.body;
+
+  if (!directory || !fileName) {
+    return res.status(400).json({ error: "Faltan datos requeridos." });
+  }
+
+  // ✅ Evitar path traversal
+  if (fileName.includes("..") || directory.includes("..")) {
+    return res
+      .status(400)
+      .json({ error: "Nombre de archivo o directorio inválido." });
+  }
+
+  // ✅ Validar extensión permitida
+  const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+
+  if (!allowedExtensions.includes(ext)) {
+    return res
+      .status(400)
+      .json({ error: "Extensión de archivo no permitida." });
+  }
+
+  const remotePath = `/public_html/uploads/${directory}/${fileName}`;
+  const client = new FTPClient();
+
+  try {
+    client.on("ready", () => {
+      client.delete(remotePath, (err) => {
+        if (err) {
+          console.error("Error al eliminar archivo:", err);
+          client.end();
+          return res
+            .status(500)
+            .json({ error: "Error al eliminar el archivo." });
+        }
+        client.end();
+        res
+          .status(200)
+          .json({ mensaje: "Imagen eliminada exitosamente.", status: 200 });
+      });
+    });
+
+    client.on("error", (err) => {
+      console.error("Error en FTP:", err);
+      return res.status(500).json({ error: "Error en la conexión FTP." });
+    });
+
+    client.connect({
+      host: process.env.FTP_HOST,
+      user: process.env.FTP_USER,
+      password: process.env.FTP_PASSWORD,
+    });
+  } catch (error) {
+    console.error("Error general en delete:", error);
+    res.status(500).json({ error: "Error al eliminar la imagen." });
   }
 };

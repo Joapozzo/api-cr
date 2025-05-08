@@ -1,217 +1,201 @@
-const { query } = require("express");
-const db = require("../utils/db");
+const { query } = require("../utils/db");
 
-const crearCategoria = (req, res) => {
+const crearCategoria = async (req, res) => {
   const { nombre, descripcion } = req.body;
-  db.query(
-    "INSERT INTO categorias(nombre, descripcion) VALUES (?, ?)",
-    [nombre, descripcion],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Categoria registrada con éxito");
-    }
-  );
+  try {
+    await query("INSERT INTO categorias(nombre, descripcion) VALUES (?, ?)", [nombre, descripcion]);
+    res.send("Categoria registrada con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const getCategorias = (req, res) => {
-  db.query(
-    `
-        SELECT
-            c.id_categoria,
-            c.id_edicion, 
-            c.nombre AS nombre,
-            CONCAT(
-                IFNULL((SELECT COUNT(*) FROM partidos p WHERE p.id_categoria = c.id_categoria AND p.estado = 'F'), 0),
-                ' / ',
-                IFNULL((SELECT COUNT(*) FROM partidos p WHERE p.id_categoria = c.id_categoria), 0)
-            ) AS partidos,
-            IFNULL((SELECT COUNT(*) FROM equipos e WHERE e.id_categoria = c.id_categoria), 0) AS equipos,
-            CONCAT(
-                IFNULL((SELECT COUNT(*) FROM jugadores j WHERE j.id_categoria = c.id_categoria), 0),
-                ' ',
-                IFNULL(
-                    CASE 
-                        WHEN c.genero = 'F' THEN 
-                            CASE WHEN (SELECT COUNT(*) FROM jugadores j WHERE j.id_categoria = c.id_categoria) = 1 THEN 'jugadora' ELSE 'jugadoras' END
-                        ELSE 
-                            CASE WHEN (SELECT COUNT(*) FROM jugadores j WHERE j.id_categoria = c.id_categoria) = 1 THEN 'jugador' ELSE 'jugadores' END
-                    END,
-                    ''
-                )
-            ) AS jugadores,
-            CASE
-                WHEN EXISTS (SELECT 1 FROM partidos p WHERE p.id_categoria = c.id_categoria AND p.estado = 'F') THEN 'JUGANDO'
-                ELSE 'SIN INICIAR'
-            END AS estado
-        FROM 
-            categorias c
-        ORDER BY 
-            c.id_categoria DESC`,
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send(result);
-    }
-  );
+const getCategorias = async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+          c.id_categoria,
+          c.id_edicion, 
+          c.nombre AS nombre,
+          CONCAT(
+              IFNULL((SELECT COUNT(*) FROM partidos p WHERE p.id_categoria = c.id_categoria AND p.estado = 'F'), 0),
+              ' / ',
+              IFNULL((SELECT COUNT(*) FROM partidos p WHERE p.id_categoria = c.id_categoria), 0)
+          ) AS partidos,
+          IFNULL((SELECT COUNT(*) FROM equipos e WHERE e.id_categoria = c.id_categoria), 0) AS equipos,
+          CONCAT(
+              IFNULL((SELECT COUNT(*) FROM jugadores j WHERE j.id_categoria = c.id_categoria), 0),
+              ' ',
+              IFNULL(
+                  CASE 
+                      WHEN c.genero = 'F' THEN 
+                          CASE WHEN (SELECT COUNT(*) FROM jugadores j WHERE j.id_categoria = c.id_categoria) = 1 THEN 'jugadora' ELSE 'jugadoras' END
+                      ELSE 
+                          CASE WHEN (SELECT COUNT(*) FROM jugadores j WHERE j.id_categoria = c.id_categoria) = 1 THEN 'jugador' ELSE 'jugadores' END
+                  END,
+                  ''
+              )
+          ) AS jugadores,
+          CASE
+              WHEN EXISTS (SELECT 1 FROM partidos p WHERE p.id_categoria = c.id_categoria AND p.estado = 'F') THEN 'JUGANDO'
+              ELSE 'SIN INICIAR'
+          END AS estado
+      FROM 
+          categorias c
+      ORDER BY 
+          c.id_categoria DESC
+    `);
+    res.send(result);
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const deleteCategoria = (req, res) => {
+const deleteCategoria = async (req, res) => {
   const { id } = req.body;
-
-  // Sentencia SQL para eliminar el año por ID
-  const sql = "DELETE FROM categorias WHERE id_categoria = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando la categoria:", err);
-      return res.status(500).send("Error eliminando la categoria");
-    }
+  try {
+    await query("DELETE FROM categorias WHERE id_categoria = ?", [id]);
     res.status(200).send("Categoria eliminada correctamente");
-  });
+  } catch (err) {
+    console.error("Error eliminando la categoria:", err);
+    res.status(500).send("Error eliminando la categoria");
+  }
 };
 
-const crearTorneo = (req, res) => {
+const crearTorneo = async (req, res) => {
   const { nombre, descripcion } = req.body;
-  db.query(
-    "INSERT INTO torneos(nombre, descripcion) VALUES (?, ?)",
-    [nombre, descripcion],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Torneo registrado con éxito");
-    }
-  );
+  try {
+    await query("INSERT INTO torneos(nombre, descripcion) VALUES (?, ?)", [nombre, descripcion]);
+    res.send("Torneo registrado con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const getTorneos = (req, res) => {
-  db.query("SELECT * FROM torneos", (err, result) => {
-    if (err) return res.status(500).send("Error interno del servidor");
+const getTorneos = async (req, res) => {
+  try {
+    const result = await query("SELECT * FROM torneos");
     res.send(result);
-  });
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const deleteTorneo = (req, res) => {
+const deleteTorneo = async (req, res) => {
   const { id } = req.body;
-
-  const sql = "DELETE FROM torneos WHERE id_torneo = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando el torneo:", err);
-      return res.status(500).send("Error eliminando el torneo");
-    }
+  try {
+    await query("DELETE FROM torneos WHERE id_torneo = ?", [id]);
     res.status(200).send("Torneo eliminado correctamente");
-  });
+  } catch (err) {
+    console.error("Error eliminando el torneo:", err);
+    res.status(500).send("Error eliminando el torneo");
+  }
 };
 
-const crearSede = (req, res) => {
+const crearSede = async (req, res) => {
   const { nombre, descripcion } = req.body;
-  db.query(
-    "INSERT INTO sedes(nombre, descripcion) VALUES (?, ?)",
-    [nombre, descripcion],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Sede registrada con éxito");
-    }
-  );
+  try {
+    await query("INSERT INTO sedes(nombre, descripcion) VALUES (?, ?)", [nombre, descripcion]);
+    res.send("Sede registrada con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const getSedes = (req, res) => {
-  db.query("SELECT * FROM sedes", (err, result) => {
-    if (err) return res.status(500).send("Error interno del servidor");
+const getSedes = async (req, res) => {
+  try {
+    const result = await query("SELECT * FROM sedes");
     res.send(result);
-  });
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const deleteSede = (req, res) => {
+const deleteSede = async (req, res) => {
   const { id } = req.body;
-
-  const sql = "DELETE FROM sedes WHERE id_sede = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando la sede:", err);
-      return res.status(500).send("Error eliminando la sede");
-    }
+  try {
+    await query("DELETE FROM sedes WHERE id_sede = ?", [id]);
     res.status(200).send("Sede eliminada correctamente");
-  });
+  } catch (err) {
+    console.error("Error eliminando la sede:", err);
+    res.status(500).send("Error eliminando la sede");
+  }
 };
 
-const crearAnio = (req, res) => {
+const crearAnio = async (req, res) => {
   const { año, descripcion } = req.body;
-  db.query(
-    "INSERT INTO años(año, descripcion) VALUES (?, ?)",
-    [año, descripcion],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Año registrado con éxito");
-    }
-  );
+  try {
+    await query("INSERT INTO años(año, descripcion) VALUES (?, ?)", [año, descripcion]);
+    res.send("Año registrado con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const importarAnio = (req, res) => {
+const importarAnio = async (req, res) => {
   const años = req.body;
   if (!Array.isArray(años)) {
     return res.status(400).send("Invalid data format");
   }
 
-  // Construye el query para insertar múltiples registros
   const values = años.map(({ año, descripcion }) => [año, descripcion]);
-  const query = "INSERT INTO años (año, descripcion) VALUES ?";
+  const insertQuery = "INSERT INTO años (año, descripcion) VALUES ?";
 
-  db.query(query, [values], (err, result) => {
-    if (err) {
-      console.error(err);
-      return res
-        .status(500)
-        .send("Error al insertar datos en la base de datos");
-    }
+  try {
+    await query(insertQuery, [values]);
     res.status(200).send("Datos importados correctamente");
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error al insertar datos en la base de datos");
+  }
 };
 
-const deleteAnio = (req, res) => {
+const deleteAnio = async (req, res) => {
   const { id } = req.body;
-
-  // Sentencia SQL para eliminar el año por ID
-  const sql = "DELETE FROM años WHERE id_año = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando el año:", err);
-      return res.status(500).send("Error eliminando el año");
-    }
+  try {
+    await query("DELETE FROM años WHERE id_año = ?", [id]);
     res.status(200).send("Año eliminado correctamente");
-  });
+  } catch (err) {
+    console.error("Error eliminando el año:", err);
+    res.status(500).send("Error eliminando el año");
+  }
 };
 
-const getAnios = (req, res) => {
-  db.query("SELECT * FROM años ORDER BY año DESC", (err, result) => {
-    if (err) return res.status(500).send("Error interno del servidor");
+const getAnios = async (req, res) => {
+  try {
+    const result = await query("SELECT * FROM años ORDER BY año DESC");
     res.send(result);
-  });
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const getRoles = (req, res) => {
-  db.query("SELECT * FROM roles", (err, result) => {
-    if (err) return res.status(500).send("Error interno del servidor");
+const getRoles = async (req, res) => {
+  try {
+    const result = await query("SELECT * FROM roles");
     res.send(result);
-  });
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const crearTemporada = (req, res) => {
+const crearTemporada = async (req, res) => {
   const { año, sede, categoria, torneo, division, descripcion } = req.body;
-  db.query(
-    "INSERT INTO temporadas(id_torneo, id_categoria, id_año, id_sede, id_division, descripcion) VALUES (?, ?, ?, ?, ?, ?)",
-    [torneo, categoria, año, sede, division, descripcion],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Temporada registrada con éxito");
-    }
-  );
+  try {
+    await query(
+      "INSERT INTO temporadas(id_torneo, id_categoria, id_año, id_sede, id_division, descripcion) VALUES (?, ?, ?, ?, ?, ?)",
+      [torneo, categoria, año, sede, division, descripcion]
+    );
+    res.send("Temporada registrada con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const getTemporadas = (req, res) => {
-  db.query(
-    `SELECT 
+const getTemporadas = async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
         id_temporada, 
         torneos.nombre AS torneo, 
         categorias.nombre AS categoria, 
@@ -220,111 +204,106 @@ const getTemporadas = (req, res) => {
         divisiones.nombre AS division,
         temporadas.descripcion,
         CONCAT(divisiones.nombre, ' - ', torneos.nombre, ' ', años.año) AS nombre_temporada
-            FROM temporadas 
-            INNER JOIN torneos ON temporadas.id_torneo = torneos.id_torneo 
-            INNER JOIN categorias ON temporadas.id_categoria = categorias.id_categoria 
-            INNER JOIN años ON temporadas.id_año = años.id_año 
-            INNER JOIN sedes ON temporadas.id_sede = sedes.id_sede
-            INNER JOIN divisiones ON temporadas.id_division = divisiones.id_division`,
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send(result);
-    }
-  );
-};
-
-const deleteTemporada = (req, res) => {
-  const { id } = req.body;
-
-  // Sentencia SQL para eliminar el año por ID
-  const sql = "DELETE FROM temporadas WHERE id_temporada = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando la temporada:", err);
-      return res.status(500).send("Error eliminando la temporada");
-    }
-    res.status(200).send("Temporada eliminado correctamente");
-  });
-};
-
-const crearEquipo = (req, res) => {
-  const { nombre, img, categoria, division, descripcion } = req.body;
-  db.query(
-    "INSERT INTO equipos(nombre, id_categoria, id_division, descripcion, img) VALUES (?, ?, ?, ?, ?)",
-    [nombre, categoria, division, descripcion, img],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Temporada registrada con éxito");
-    }
-  );
-};
-
-const getDivisiones = (req, res) => {
-  db.query("SELECT * FROM divisiones", (err, result) => {
-    if (err) return res.status(500).send("Error interno del servidor");
+      FROM temporadas 
+      INNER JOIN torneos ON temporadas.id_torneo = torneos.id_torneo 
+      INNER JOIN categorias ON temporadas.id_categoria = categorias.id_categoria 
+      INNER JOIN años ON temporadas.id_año = años.id_año 
+      INNER JOIN sedes ON temporadas.id_sede = sedes.id_sede
+      INNER JOIN divisiones ON temporadas.id_division = divisiones.id_division
+    `);
     res.send(result);
-  });
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const crearDivision = (req, res) => {
-  const { nombre, descripcion } = req.body;
-  db.query(
-    "INSERT INTO divisiones(nombre, descripcion) VALUES (?, ?)",
-    [nombre, descripcion],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Categoria registrada con éxito");
-    }
-  );
-};
-
-const getUsuarios = (req, res) => {
-  db.query(
-    `SELECT 
-    usuarios.id_usuario, 
-    usuarios.dni, 
-    CONCAT(UPPER(usuarios.apellido), ', ', usuarios.nombre) AS usuario, 
-    usuarios.telefono, 
-    usuarios.id_rol, 
-    equipos.id_equipo, 
-    usuarios.email,
-    usuarios.estado,
-    usuarios.img,
-    usuarios.nombre,
-    usuarios.apellido,
-    DATE_FORMAT(usuarios.nacimiento, '%d/%m/%Y') AS nacimiento,
-    usuarios.fecha_creacion,
-    usuarios.fecha_actualizacion
-FROM 
-    usuarios 
-LEFT JOIN 
-    roles ON roles.id_rol = usuarios.id_rol 
-LEFT JOIN 
-    equipos ON equipos.id_equipo = usuarios.id_equipo;`,
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send(result);
-    }
-  );
-};
-
-const deleteUsuario = (req, res) => {
+const deleteTemporada = async (req, res) => {
   const { id } = req.body;
-
-  // Sentencia SQL para eliminar el año por ID
-  const sql = "DELETE FROM usuarios WHERE id_usuario = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando el usuario:", err);
-      return res.status(500).send("Error eliminando el usuario");
-    }
-    res.status(200).send("Usuario eliminado correctamente");
-  });
+  try {
+    await query("DELETE FROM temporadas WHERE id_temporada = ?", [id]);
+    res.status(200).send("Temporada eliminada correctamente");
+  } catch (err) {
+    console.error("Error eliminando la temporada:", err);
+    res.status(500).send("Error eliminando la temporada");
+  }
 };
 
-const updateUsuario = (req, res) => {
+const crearEquipo = async (req, res) => {
+  const { nombre, img, categoria, division, descripcion } = req.body;
+  try {
+    await query(
+      "INSERT INTO equipos(nombre, id_categoria, id_division, descripcion, img) VALUES (?, ?, ?, ?, ?)",
+      [nombre, categoria, division, descripcion, img]
+    );
+    res.send("Temporada registrada con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const getDivisiones = async (req, res) => {
+  try {
+    const result = await query("SELECT * FROM divisiones");
+    res.send(result);
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const crearDivision = async (req, res) => {
+  const { nombre, descripcion } = req.body;
+  try {
+    await query("INSERT INTO divisiones(nombre, descripcion) VALUES (?, ?)", [nombre, descripcion]);
+    res.send("Categoria registrada con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const getUsuarios = async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        usuarios.id_usuario, 
+        usuarios.dni, 
+        CONCAT(UPPER(usuarios.apellido), ', ', usuarios.nombre) AS usuario, 
+        usuarios.telefono, 
+        usuarios.id_rol, 
+        equipos.id_equipo, 
+        usuarios.email,
+        usuarios.estado,
+        usuarios.img,
+        usuarios.nombre,
+        usuarios.apellido,
+        DATE_FORMAT(usuarios.nacimiento, '%d/%m/%Y') AS nacimiento,
+        usuarios.fecha_creacion,
+        usuarios.fecha_actualizacion
+      FROM 
+        usuarios 
+      LEFT JOIN 
+        roles ON roles.id_rol = usuarios.id_rol 
+      LEFT JOIN 
+        equipos ON equipos.id_equipo = usuarios.id_equipo;
+    `);
+    res.send(result);
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const deleteUsuario = async (req, res) => {
+  const { id } = req.body;
+  try {
+    const sql = "DELETE FROM usuarios WHERE id_usuario = ?";
+    await query(sql, [id]);
+    res.status(200).send("Usuario eliminado correctamente");
+  } catch (err) {
+    console.error("Error eliminando el usuario:", err);
+    res.status(500).send("Error eliminando el usuario");
+  }
+};
+
+const updateUsuario = async (req, res) => {
   const {
     dni,
     nombre,
@@ -338,34 +317,30 @@ const updateUsuario = (req, res) => {
     img,
     id_usuario,
   } = req.body;
-  const fecha_actualizacion = new Date(); // Obtener la fecha actual
+  const fecha_actualizacion = new Date();
 
-  // Validar que id_usuario esté presente
   if (!id_usuario) {
     return res.status(400).send("ID de usuario es requerido");
   }
-  // Construir la consulta SQL
-  const sql = `
-        UPDATE usuarios
-        SET 
-            dni = ?, 
-            nombre = ?, 
-            apellido = ?, 
-            nacimiento = ?, 
-            email = ?, 
-            telefono = ?, 
-            id_rol = ?, 
-            id_equipo = ?,
-            estado = ?,
-            img = ?,
-            fecha_actualizacion = ?
-        WHERE id_usuario = ?;
-    `;
 
-  // Ejecutar la consulta
-  db.query(
-    sql,
-    [
+  try {
+    const sql = `
+      UPDATE usuarios
+      SET 
+          dni = ?, 
+          nombre = ?, 
+          apellido = ?, 
+          nacimiento = ?, 
+          email = ?, 
+          telefono = ?, 
+          id_rol = ?, 
+          id_equipo = ?,
+          estado = ?,
+          img = ?,
+          fecha_actualizacion = ?
+      WHERE id_usuario = ?;
+    `;
+    await query(sql, [
       dni,
       nombre,
       apellido,
@@ -378,36 +353,29 @@ const updateUsuario = (req, res) => {
       img,
       fecha_actualizacion,
       id_usuario,
-    ],
-    (err, result) => {
-      if (err) {
-        return res.status(500).send("Error interno del servidor");
-      }
-      res.send("Usuario actualizado exitosamente");
-    }
-  );
+    ]);
+    res.send("Usuario actualizado exitosamente");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const crearJugador = (req, res) => {
+const crearJugador = async (req, res) => {
   const { dni, nombre, apellido, posicion, id_equipo } = req.body;
-  console.log(dni, nombre, apellido, posicion, id_equipo);
-  db.query(
-    "CALL sp_crear_jugador(?, ?, ?, ?, ?)",
-    [dni, nombre, apellido, posicion, id_equipo],
-    (err, result) => {
-      if (err) {
-        if (err.sqlState === "45000") {
-          return res.status(400).send(err.sqlMessage);
-        }
-        console.error(
-          "Error al insertar el jugador en la tabla jugadores:",
-          err
-        );
-        return res.status(500).send("Error interno del servidor");
-      }
-      res.status(200).send("Jugador creado exitosamente");
+
+  try {
+    await query(
+      "CALL sp_crear_jugador(?, ?, ?, ?, ?)",
+      [dni, nombre, apellido, posicion, id_equipo]
+    );
+    res.status(200).send("Jugador creado exitosamente");
+  } catch (err) {
+    if (err.sqlState === "45000") {
+      return res.status(400).send(err.sqlMessage);
     }
-  );
+    console.error("Error al insertar el jugador en la tabla jugadores:", err);
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
 const importarJugadores = async (req, res) => {
@@ -417,33 +385,24 @@ const importarJugadores = async (req, res) => {
   }
 
   const getOrCreateTeamId = async (equipo) => {
-    return new Promise((resolve, reject) => {
-      db.query(
+    try {
+      const result = await query(
         "SELECT id_equipo FROM equipos WHERE nombre = ?",
-        [equipo],
-        (err, result) => {
-          if (err) {
-            console.error("Error al buscar el equipo:", err);
-            return reject(err);
-          }
-          if (result.length > 0) {
-            resolve(result[0].id_equipo);
-          } else {
-            db.query(
-              "INSERT INTO equipos (nombre) VALUES (?)",
-              [equipo],
-              (err, result) => {
-                if (err) {
-                  console.error("Error al crear el equipo:", err);
-                  return reject(err);
-                }
-                resolve(result.insertId);
-              }
-            );
-          }
-        }
+        [equipo]
       );
-    });
+      if (result.length > 0) {
+        return result[0].id_equipo;
+      } else {
+        const [insertResult] = await query(
+          "INSERT INTO equipos (nombre) VALUES (?)",
+          [equipo]
+        );
+        return insertResult.insertId;
+      }
+    } catch (err) {
+      console.error("Error al buscar o crear el equipo:", err);
+      throw err;
+    }
   };
 
   try {
@@ -462,38 +421,28 @@ const importarJugadores = async (req, res) => {
 
     const query =
       "INSERT INTO jugadores (dni, nombre, apellido, posicion, id_equipo) VALUES ?";
+    await query(query, [values]);
 
-    db.query(query, [values], (err, result) => {
-      if (err) {
-        console.error("Error al insertar jugadores:", err);
-        return res
-          .status(500)
-          .send("Error al insertar datos en la base de datos");
-      }
-      res.status(200).send("Datos importados correctamente");
-    });
+    res.status(200).send("Datos importados correctamente");
   } catch (error) {
     console.error("Error durante la importación:", error);
     res.status(500).send("Error interno del servidor");
   }
 };
 
-const deleteJugador = (req, res) => {
+const deleteJugador = async (req, res) => {
   const { id } = req.body;
-
-  // Sentencia SQL para eliminar el año por ID
-  const sql = "DELETE FROM jugadores WHERE id_jugador = ?";
-
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error("Error eliminando el jugador:", err);
-      return res.status(500).send("Error eliminando el jugador");
-    }
+  try {
+    const sql = "DELETE FROM jugadores WHERE id_jugador = ?";
+    await query(sql, [id]);
     res.status(200).send("Jugador eliminado correctamente");
-  });
+  } catch (err) {
+    console.error("Error eliminando el jugador:", err);
+    res.status(500).send("Error eliminando el jugador");
+  }
 };
 
-const crearPartido = (req, res) => {
+const crearPartido = async (req, res) => {
   const {
     id_temporada,
     id_equipoLocal,
@@ -505,38 +454,33 @@ const crearPartido = (req, res) => {
     arbitro,
     id_planillero,
   } = req.body;
-  db.query(
-    `
-        INSERT INTO partidos
-        (id_temporada, 
-        id_equipoLocal, 
-        id_equipoVisita, 
-        jornada, 
-        dia, 
-        hora, 
-        cancha, 
-        arbitro, 
-        id_planillero) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-    [
-      id_temporada,
-      id_equipoLocal,
-      id_equipoVisita,
-      jornada,
-      dia,
-      hora,
-      cancha,
-      arbitro,
-      id_planillero,
-    ],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send("Temporada registrada con éxito");
-    }
-  );
+
+  try {
+    await query(
+      `
+      INSERT INTO partidos
+      (id_temporada, id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, arbitro, id_planillero) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `,
+      [
+        id_temporada,
+        id_equipoLocal,
+        id_equipoVisita,
+        jornada,
+        dia,
+        hora,
+        cancha,
+        arbitro,
+        id_planillero,
+      ]
+    );
+    res.send("Temporada registrada con éxito");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const updatePartido = (req, res) => {
+const updatePartido = async (req, res) => {
   const { goles_local, goles_visita, descripcion, id_partido } = req.body;
   console.log("Request received:", req.body);
 
@@ -544,88 +488,52 @@ const updatePartido = (req, res) => {
     return res.status(400).send("ID de partido es requerido");
   }
 
-  const sql = `
-        UPDATE partidos
-        SET 
-            goles_local = ?, 
-            goles_visita = ?, 
-            descripcion = ?
-        WHERE id_partido = ?
+  try {
+    const sql = `
+      UPDATE partidos
+      SET 
+          goles_local = ?, 
+          goles_visita = ?, 
+          descripcion = ?
+      WHERE id_partido = ?
     `;
-
-  db.query(
-    sql,
-    [goles_local, goles_visita, descripcion, id_partido],
-    (err, result) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).send("Error interno del servidor");
-      }
-      res.send("Usuario actualizado exitosamente");
-    }
-  );
+    await query(sql, [goles_local, goles_visita, descripcion, id_partido]);
+    res.send("Usuario actualizado exitosamente");
+  } catch (err) {
+    console.error("Database error:", err);
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
 const crearExpulsion = async (req, res) => {
   const { id_jugador, id_equipo, id_edicion, id_categoria } = req.body;
 
   try {
-    const sql = `
-            SELECT COUNT(*) as expulsiones_activas 
-            FROM expulsados e
-            JOIN partidos p ON e.id_partido = p.id_partido
-            WHERE e.id_jugador = ? 
-                AND p.id_categoria = ?
-                AND e.estado = 'A'
-        `;
+    const result = await query(
+      `
+      SELECT COUNT(*) as expulsiones_activas 
+      FROM expulsados e
+      JOIN partidos p ON e.id_partido = p.id_partido
+      WHERE e.id_jugador = ? 
+        AND p.id_categoria = ?
+        AND e.estado = 'A'
+      `,
+      [id_jugador, id_categoria]
+    );
 
-    // Primera consulta: Verificar si el jugador ya tiene una expulsión activa
-    db.query(sql, [id_jugador, id_categoria], (err, result) => {
-      if (err) {
-        return res.status(500).json({mensaje: "Error interno del servidor"});
-      }
+    const { expulsiones_activas } = result[0];
+    if (expulsiones_activas > 0) {
+      return res.status(400).json({ mensaje: "El jugador ya tiene una expulsión activa en la categoría" });
+    }
 
-      const { expulsiones_activas } = result[0];
-      if (expulsiones_activas > 0) {
-        // Si hay una expulsión activa, terminamos aquí.
-        return res
-          .status(400)
-          .json({mensaje: "El jugador ya tiene una expulsión activa en la categoría"});
-      }
+    await query(`CALL sp_crear_expulsion(?, ?, ?, ?)`, [id_jugador, id_equipo, id_edicion, id_categoria]);
+    res.status(201).json({ mensaje: "Expulsión creada con éxito" });
 
-      // Si no hay expulsión activa, llamamos al procedimiento almacenado
-      db.query(
-        `CALL sp_crear_expulsion(?, ?, ?, ?);`,
-        [id_jugador, id_equipo, id_edicion, id_categoria],
-        (err, results) => {
-          if (err) {
-            console.error(
-              "Error al ejecutar el procedimiento almacenado:",
-              err
-            );
-            if (
-              err.code === "ER_SIGNAL_EXCEPTION" ||
-              err.sqlState === "45000"
-            ) {
-              // Error lanzado desde el procedimiento almacenado con SIGNAL
-              return res
-                .status(400)
-                .json({
-                  error:
-                    err.sqlMessage || "Error en el procedimiento almacenado",
-                });
-            } else {
-              return res.status(500).json({mensaje: "Error al registrar la expulsión"});
-            }
-          }
-
-          // Expulsión registrada exitosamente
-          res.status(201).json({mensaje: "Expulsión creada con éxito"});
-        }
-      );
-    });
-  } catch (error) {
-    console.error("Error inesperado:", error);
+  } catch (err) {
+    console.error("Error inesperado:", err);
+    if (err.code === "ER_SIGNAL_EXCEPTION" || err.sqlState === "45000") {
+      return res.status(400).json({ error: err.sqlMessage || "Error en el procedimiento almacenado" });
+    }
     res.status(500).send("Error al procesar la solicitud");
   }
 };
@@ -633,262 +541,204 @@ const crearExpulsion = async (req, res) => {
 const borrarExpulsion = async (req, res) => {
   const { id_expulsion, id_categoria, id_jugador } = req.body;
 
-  // Verificar que todos los datos excluyentes están presentes
   if (!id_expulsion || !id_categoria || !id_jugador) {
     return res.status(400).send("Faltan datos excluyentes");
   }
 
-  // Consulta SQL para encontrar la expulsión activa o inactiva en la misma categoría y jugador
-  const sqlBuscar = `
-        SELECT * 
-        FROM expulsados 
-        WHERE id_expulsion = ? 
-            AND id_jugador = ? 
-            AND estado IN ('A', 'I') 
-            AND id_partido IN (
-            SELECT id_partido 
-            FROM partidos 
-            WHERE id_categoria = ?
-        )
-    `;
+  try {
+    const result = await query(
+      `
+      SELECT * 
+      FROM expulsados 
+      WHERE id_expulsion = ? 
+        AND id_jugador = ? 
+        AND estado IN ('A', 'I') 
+        AND id_partido IN (
+          SELECT id_partido 
+          FROM partidos 
+          WHERE id_categoria = ?
+      )
+      `,
+      [id_expulsion, id_jugador, id_categoria]
+    );
 
-  db.query(
-    sqlBuscar,
-    [id_expulsion, id_jugador, id_categoria],
-    (err, result) => {
-      if (err) {
-        return res.status(500).send("Error al buscar la expulsión");
-      }
-
-      if (result.length === 0) {
-        return res
-          .status(404)
-          .send(
-            "No se encontró una expulsión activa o inactiva para el jugador en esta categoría"
-          );
-      }
-
-      // Expulsión encontrada, proceder a eliminarla
-      const sqlBorrar = `
-            DELETE FROM expulsados 
-            WHERE id_expulsion = ?
-        `;
-
-      db.query(sqlBorrar, [id_expulsion], (err) => {
-        if (err) {
-          return res.status(500).send("Error al eliminar la expulsión");
-        }
-
-        // Actualizar el estado del jugador en la tabla 'planteles'
-        const sqlUpdate = `
-                UPDATE planteles
-                SET sancionado = 'N'
-                WHERE id_jugador = ?
-                AND id_categoria = ?
-            `;
-
-        db.query(sqlUpdate, [id_jugador, id_categoria], (err) => {
-          if (err) {
-            return res
-              .status(500)
-              .send("Error al actualizar el estado del jugador");
-          }
-
-          // Solo enviar la respuesta al final de todas las operaciones
-          return res
-            .status(200)
-            .send("Expulsión eliminada y estado actualizado correctamente");
-        });
-      });
+    if (result.length === 0) {
+      return res.status(404).send("No se encontró una expulsión activa o inactiva para el jugador en esta categoría");
     }
-  );
+
+    await query(`DELETE FROM expulsados WHERE id_expulsion = ?`, [id_expulsion]);
+    await query(
+      `
+      UPDATE planteles
+      SET sancionado = 'N'
+      WHERE id_jugador = ? AND id_categoria = ?
+      `,
+      [id_jugador, id_categoria]
+    );
+
+    res.status(200).send("Expulsión eliminada y estado actualizado correctamente");
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
 const actualizarExpulsion = async (req, res) => {
   const { id_expulsion, fechas, fechas_restantes, multa } = req.body;
 
-  if (
-    !id_expulsion ||
-    typeof fechas !== "number" ||
-    typeof fechas_restantes !== "number" ||
-    !multa
-  ) {
+  if (!id_expulsion || typeof fechas !== "number" || typeof fechas_restantes !== "number" || !multa) {
     return res.status(400).send("Falta información excluyente");
   }
 
-  const sqlSelect = `
-        SELECT id_partido, id_jugador
-        FROM expulsados
-        WHERE id_expulsion = ?
-    `;
+  try {
+    const result = await query(
+      `
+      SELECT id_partido, id_jugador
+      FROM expulsados
+      WHERE id_expulsion = ?
+      `,
+      [id_expulsion]
+    );
 
-  db.query(sqlSelect, [id_expulsion], (err, result) => {
-    if (err || result.length === 0) {
-      return res
-        .status(400)
-        .send("Error al encontrar la expulsión o no existe");
+    if (result.length === 0) {
+      return res.status(400).send("Error al encontrar la expulsión o no existe");
     }
 
     const { id_partido, id_jugador } = result[0];
 
     if (fechas_restantes === 0) {
-      // Obtener el id_categoria del partido
-      const sqlCategoria = `
-                SELECT id_categoria
-                FROM partidos
-                WHERE id_partido = ?
-            `;
-
-      db.query(sqlCategoria, [id_partido], (err, result) => {
-        if (err || result.length === 0) {
-          return res
-            .status(400)
-            .send("Error al encontrar la categoría del partido");
-        }
-
-        const id_categoria = result[0].id_categoria;
-
-        // Actualizar el campo sancionado en planteles
-        const sqlUpdatePlanteles = `
-                    UPDATE planteles
-                    SET sancionado = 'N'
-                    WHERE id_jugador = ? AND id_categoria = ?
-                `;
-
-        db.query(sqlUpdatePlanteles, [id_jugador, id_categoria], (err) => {
-          if (err) {
-            return res
-              .status(400)
-              .send("Error al actualizar el estado de sanción en planteles");
-          }
-
-          // Actualizar la expulsión a inactiva
-          const sqlUpdateExpulsion = `
-                        UPDATE expulsados
-                        SET estado = 'I', fechas_restantes = 0
-                        WHERE id_expulsion = ?
-                    `;
-
-          db.query(sqlUpdateExpulsion, [id_expulsion], (err) => {
-            if (err) {
-              return res.status(400).send("Error al actualizar la expulsión");
-            }
-            return res.send(
-              "Expulsión actualizada a inactiva y sanción eliminada"
-            );
-          });
-        });
-      });
-    } else {
-      // Actualizar la expulsión con los datos recibidos
-      const sqlUpdateExpulsion = `
-                UPDATE expulsados
-                SET fechas = ?, fechas_restantes = ?, multa = ?, estado = 'A'
-                WHERE id_expulsion = ?
-            `;
-
-      db.query(
-        sqlUpdateExpulsion,
-        [fechas, fechas_restantes, multa, id_expulsion],
-        (err) => {
-          if (err) {
-            return res.status(400).send("Error al actualizar la expulsión");
-          }
-          return res.send("Expulsión actualizada correctamente");
-        }
+      const [catResult] = await query(
+        `
+        SELECT id_categoria
+        FROM partidos
+        WHERE id_partido = ?
+        `,
+        [id_partido]
       );
+
+      if (catResult.length === 0) {
+        return res.status(400).send("Error al encontrar la categoría del partido");
+      }
+
+      const { id_categoria } = catResult[0];
+
+      await query(
+        `
+        UPDATE planteles
+        SET sancionado = 'N'
+        WHERE id_jugador = ? AND id_categoria = ?
+        `,
+        [id_jugador, id_categoria]
+      );
+
+      await query(
+        `
+        UPDATE expulsados
+        SET estado = 'I', fechas_restantes = 0
+        WHERE id_expulsion = ?
+        `,
+        [id_expulsion]
+      );
+
+      return res.send("Expulsión actualizada a inactiva y sanción eliminada");
+    } else {
+      await query(
+        `
+        UPDATE expulsados
+        SET fechas = ?, fechas_restantes = ?, multa = ?, estado = 'A'
+        WHERE id_expulsion = ?
+        `,
+        [fechas, fechas_restantes, multa, id_expulsion]
+      );
+
+      return res.send("Expulsión actualizada correctamente");
     }
-  });
+  } catch (err) {
+    res.status(400).send("Error al actualizar la expulsión");
+  }
 };
 
-const getFases = (req, res) => {
+const getFases = async (req, res) => {
   const { id_categoria } = req.query;
 
-
-  db.query(
-    "SELECT * FROM fases WHERE id_categoria = ?",
-    [id_categoria],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send(result);
-    }
-  );
+  try {
+    const result = await query(
+      "SELECT * FROM fases WHERE id_categoria = ?",
+      [id_categoria]
+    );
+    res.send(result);
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const createFase = (req, res) => {
+const createFase = async (req, res) => {
   const { id_categoria, numero_fase } = req.body;
   console.log(id_categoria, numero_fase);
-  
+
   if (!id_categoria || !numero_fase) {
     return res.status(400).json({ mensaje: "Faltan datos para crear la fase" });
   }
 
-  db.query(
-    "INSERT INTO fases (id_categoria, numero_fase) VALUES (?, ?)",
-    [parseInt(id_categoria), parseInt(numero_fase)],
-    (err, result) => {
-      if (err) return res.status(500).send("Error interno del servidor");
-      res.send(result);
-    }
-  );
-};
-
-const getPartidoZona = (req, res) => {
-    const { id_zona, vacante } = req.query;
-
-    // Consultar partidos por id_zona
-    db.query(
-        "SELECT * FROM partidos WHERE id_zona = ?",
-        [id_zona],
-        (err, partidos) => {
-            if (err) return res.status(500).send("Error interno del servidor");
-
-            // Filtrar partidos según vacante_local o vacante_visita
-            const partidosFiltrados = partidos.filter(partido => 
-                partido.vacante_local == vacante || partido.vacante_visita == vacante
-            );
-
-            if (partidosFiltrados.length > 0) {
-                return res.json(partidosFiltrados);
-            } else {
-                return res.status(404).send("No se encontraron partidos con la vacante especificada");
-            }
-        }
+  try {
+    const result = await query(
+      "INSERT INTO fases (id_categoria, numero_fase) VALUES (?, ?)",
+      [parseInt(id_categoria), parseInt(numero_fase)]
     );
+    res.send(result);
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
-const checkEquipoPlantel = (req, res) => {
+const getPartidoZona = async (req, res) => {
+  const { id_zona, vacante } = req.query;
+
+  try {
+    const [partidos] = await query(
+      "SELECT * FROM partidos WHERE id_zona = ?",
+      [id_zona]
+    );
+
+    const partidosFiltrados = partidos.filter(partido =>
+      partido.vacante_local == vacante || partido.vacante_visita == vacante
+    );
+
+    if (partidosFiltrados.length > 0) {
+      return res.json(partidosFiltrados);
+    } else {
+      return res.status(404).send("No se encontraron partidos con la vacante especificada");
+    }
+  } catch (err) {
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const checkEquipoPlantel = async (req, res) => {
   const { id_equipo, id_edicion } = req.query;
-  console.log(id_equipo, id_edicion);
-  
+
   if (!id_edicion || !id_equipo) {
     return res.status(500).json({ mensaje: 'Faltan datos importantes' });
   }
 
-  // Verificar si el equipo ya tiene un plantel en la edición actual
-  const checkPlantelActualSql = `
-    SELECT 
-      COUNT(p.id_jugador) AS total_jugadores
-    FROM 
-      planteles p
-    WHERE 
-      p.id_equipo = ? AND p.id_edicion = ?;
-  `;
+  try {
+    const resultActual = await query(
+      `
+      SELECT 
+        COUNT(p.id_jugador) AS total_jugadores
+      FROM 
+        planteles p
+      WHERE 
+        p.id_equipo = ? AND p.id_edicion = ?;
+      `,
+      [id_equipo, id_edicion]
+    );
 
-  const paramsActual = [id_equipo, id_edicion];
-
-  db.query(checkPlantelActualSql, paramsActual, (err, result) => {
-    if (err) {
-      return res.status(500).json({ mensaje: "Error en la consulta de la base de datos." });
-    }
-
-    if (result[0]?.total_jugadores > 0) {
-      // Si el equipo ya tiene plantel en la edición actual
+    if (resultActual[0]?.total_jugadores > 0) {
       return res.status(400).json({ mensaje: "El equipo ya tiene un plantel en esta edición." });
     }
 
-    // Si no tiene plantel en la edición actual, buscar planteles en otras ediciones
-    const checkPlantelOtrasEdicionesSql = `
+    const resultOtras = await query(
+      `
       SELECT 
         p.id_edicion,
         p.id_categoria,
@@ -902,47 +752,40 @@ const checkEquipoPlantel = (req, res) => {
         p.id_equipo = ? AND p.id_edicion != ?
       GROUP BY 
         p.id_edicion;
-    `;
+      `,
+      [id_equipo, id_edicion]
+    );
 
-    const paramsOtrasEdiciones = [id_equipo, id_edicion];
+    if (resultOtras.length === 0) {
+      return res.status(404).json({ mensaje: "No se encontraron planteles en otras ediciones." });
+    }
 
-    db.query(checkPlantelOtrasEdicionesSql, paramsOtrasEdiciones, (err, result) => {
-      if (err) {
-        return res.status(500).json({ mensaje: "Error en la consulta de la base de datos." });
-      }
+    return res.status(200).json({ data: resultOtras });
 
-      if (result.length === 0) {
-        return res.status(404).json({ mensaje: "No se encontraron planteles en otras ediciones." });
-      }
-
-      return res.status(200).json({ data: result });
-    });
-  });
+  } catch (err) {
+    res.status(500).json({ mensaje: "Error en la consulta de la base de datos." });
+  }
 };
 
 const copiarPlantelesTemporada = async (req, res) => {
-  const {id_equipo, id_categoria_previo, id_categoria, id_edicion} = req.body;
+  const { id_equipo, id_categoria_previo, id_categoria, id_edicion } = req.body;
 
   if (!id_equipo || !id_categoria_previo || !id_categoria || !id_edicion) {
     return res.status(400).json({ mensaje: "Faltan datos importantes" });
   }
 
-  const sql = `
-    CALL sp_copiar_planteles_temporada(?, ?, ?, ?);
-  `;
-
-  const params = [id_equipo, id_categoria_previo, id_categoria, id_edicion];
-
-  db.query(sql, params, (err, result) => {
-    if (err) {
-      console.error("Error al copiar planteles temporada:", err);
-      return res.status(500).json({ mensaje: "Error al copiar planteles" });
-    }
+  try {
+    await query(
+      `CALL sp_copiar_planteles_temporada(?, ?, ?, ?)`,
+      [id_equipo, id_categoria_previo, id_categoria, id_edicion]
+    );
 
     return res.status(200).json({ mensaje: "Planteles copiados correctamente" });
-  });
-
-}
+  } catch (err) {
+    console.error("Error al copiar planteles temporada:", err);
+    return res.status(500).json({ mensaje: "Error al copiar planteles" });
+  }
+};
 
 const eliminarFase = async (req, res) => {
   const { id } = req.body;
@@ -952,17 +795,17 @@ const eliminarFase = async (req, res) => {
     return res.status(400).json({ mensaje: "Faltan datos para eliminar la fase" });
   }
 
-  const sql = `DELETE FROM fases WHERE id_categoria = ? AND numero_fase = ?`;
-  db.query(sql, [id_categoria, numero_fase], (err, result) => {
-    if (err) {
-      console.error("Error al eliminar fase:", err);
-      return res.status(500).json({ mensaje: "Error al eliminar fase" });
-    }
-
+  try {
+    await query(
+      `DELETE FROM fases WHERE id_categoria = ? AND numero_fase = ?`,
+      [id_categoria, numero_fase]
+    );
     return res.status(200).json({ mensaje: "Fase eliminada correctamente" });
-  });
-
-}
+  } catch (err) {
+    console.error("Error al eliminar fase:", err);
+    return res.status(500).json({ mensaje: "Error al eliminar fase" });
+  }
+};
 
 module.exports = {
   crearCategoria,

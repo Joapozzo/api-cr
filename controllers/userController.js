@@ -1,5 +1,6 @@
 const db = require('../utils/db');
 
+//! SACAR DE ACA
 const getUsers = (req, res) => {
     db.query(`SELECT
                 u.id_usuario,
@@ -28,6 +29,7 @@ const getRoles = (req, res) => {
         res.send(result);
     });
 };
+//!
 
 // !TRAER NOMBRES DE ZONA Y CATEGORIA
 const getPartidos = (req, res) => {
@@ -130,6 +132,7 @@ const getJugadores = (req, res) => {
     });
 };
 
+//! NO HACER
 const crearFormaciones = (req, res) => {
     const formaciones = req.body;
 
@@ -450,6 +453,7 @@ const armarDreamteam = (req, res) => {
         res.send(result[0]);
     });
 }
+//!
 
 module.exports = {
     getUsers,

@@ -1,24 +1,21 @@
 const bcryptjs = require('bcryptjs');
 const jsonwebtoken = require('jsonwebtoken');
-const db = require('../utils/db');
+const { query } = require('../utils/db');
 const mailer = require('../utils/mailer');
 const { URL_FRONT } = require('../utils/utils');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-const checkEmail = (req, res) => {
+const checkEmail = async (req, res) => {
     const { email, bandera } = req.body;
 
     if (!email) {
         return res.status(400).send('Email no proporcionado');
     }
 
-    db.query('SELECT COUNT(*) AS count FROM usuarios WHERE email = ?', [email], (err, result) => {
-        if (err) {
-            console.error('Error en la consulta a la base de datos:', err);
-            return res.status(500).send('Error interno del servidor');
-        }
+    try {
+        const result = await query('SELECT COUNT(*) AS count FROM usuarios WHERE email = ?', [email]);
 
         console.log('Resultado de la consulta:', result);
 
@@ -37,19 +34,30 @@ const checkEmail = (req, res) => {
                 return res.status(400).send('Correo electrónico no encontrado en la base de datos');
             }
         }
-    });
+    } catch (err) {
+        console.error('Error en la consulta a la base de datos:', err);
+        return res.status(500).send('Error interno del servidor');
+    }
 };
 
-const checkDni = (req, res) => {
+const checkDni = async (req, res) => {
     const { dni } = req.body;
-    db.query('SELECT COUNT(*) AS count FROM usuarios WHERE dni = ?', [dni], (err, result) => {
-        if (err) return res.status(500).send('Error interno del servidor');
-        if (result[0].count > 0) return res.status(400).send('El DNI ya está registrado');
+
+    try {
+        const result = await query('SELECT COUNT(*) AS count FROM usuarios WHERE dni = ?', [dni]);
+
+        if (result[0].count > 0) {
+            return res.status(400).send('El DNI ya está registrado');
+        }
+
         res.send('El DNI está disponible');
-    });
+    } catch (err) {
+        console.error('Error en la consulta a la base de datos:', err);
+        return res.status(500).send('Error interno del servidor');
+    }
 };
 
-const crearCuenta = (req, res) => {
+const crearCuenta = async (req, res) => {
     const { dni, nombre, apellido, fechaNacimiento, telefono, email, clave, rol } = req.body;
     const fecha_creacion = new Date(); // Obtener la fecha actual
 
@@ -58,63 +66,55 @@ const crearCuenta = (req, res) => {
         return res.status(400).send("Faltan datos requeridos");
     }
 
-    bcryptjs.genSalt(10, (err, salt) => {
-        if (err) {
-            console.error("Error al generar la sal:", err);
-            return res.status(500).send("Error interno del servidor");
+    try {
+        // Generar la sal y el hash de la contraseña
+        const salt = await bcryptjs.genSalt(10);
+        const hash = await bcryptjs.hash(clave, salt);
+
+        // Insertar el nuevo usuario en la base de datos
+        await query(
+            `INSERT INTO usuarios(dni, nombre, apellido, nacimiento, telefono, email, id_rol, clave, fecha_creacion, fecha_actualizacion, estado) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [dni, nombre, apellido, fechaNacimiento, telefono, email, parseInt(rol), hash, fecha_creacion, null, 'I']
+        );
+
+        // Intentar enviar el correo antes de enviar la respuesta
+        if (email) {
+            try {
+                await mailer.sendVerificationEmail(email, dni, nombre);
+            } catch (error) {
+                console.error('Error al enviar el correo:', error);
+                return res.status(500).json({ message: 'Hubo un error en el envío del mail de autenticación' });
+            }
         }
 
-        bcryptjs.hash(clave, salt, (err, hash) => {
-            if (err) {
-                console.error("Error al encriptar la contraseña:", err);
-                return res.status(500).send("Error interno del servidor");
-            }
-
-            db.query(
-                `INSERT INTO usuarios(dni, nombre, apellido, nacimiento, telefono, email, id_rol, clave, fecha_creacion, fecha_actualizacion, estado) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [dni, nombre, apellido, fechaNacimiento, telefono, email, parseInt(rol), hash, fecha_creacion, null, 'I'],
-                async (err, result) => {
-                    if (err) {
-                        console.error("Error al insertar el usuario en la tabla usuarios:", err);
-                        return res.status(500).send("Error interno del servidor");
-                    }
-
-                    // Intentar enviar el correo antes de enviar la respuesta
-                    if (email) {
-                        try {
-                            await mailer.sendVerificationEmail(email, dni, nombre);
-                        } catch (error) {
-                            console.error('Error al enviar el correo:', error);
-                            return res.status(500).json({ message: 'Hubo un error en el envío del mail de autenticación' });
-                        }
-                    }
-                    
-                    // Solo enviar una vez la respuesta
-                    res.status(200).send("Cuenta creada exitosamente.");
-                }
-            );
-        });
-    });
+        // Responder una vez que todo se ha procesado correctamente
+        res.status(200).send("Cuenta creada exitosamente.");
+    } catch (err) {
+        console.error("Error al crear la cuenta:", err);
+        return res.status(500).send("Error interno del servidor");
+    }
 };
 
-const checkLogin = (req, res) => {
+const checkLogin = async (req, res) => {
     const { dni, password } = req.body;
 
-    db.query('SELECT * FROM usuarios WHERE dni = ?', [dni], (err, rows) => {
-        if (err) return res.status(500).send('Error interno del servidor');
+    try {
+        // Obtener los datos del usuario desde la base de datos
+        const rows = await query('SELECT * FROM usuarios WHERE dni = ?', [dni]);
 
         if (rows.length === 0) return res.status(400).send('Usuario no encontrado');
 
         const user = rows[0];
+
         if (user.id_rol === null) return res.status(401).send('Usuario no autorizado');
-
         if (user.estado !== 'A') return res.status(403).send('Cuenta no activada');
-
         if (!bcryptjs.compareSync(password, user.clave)) return res.status(405).send('Contraseña incorrecta');
 
-        const token = jsonwebtoken.sign({ user: user.dni }, 'textosecretoDECIFRADO', { expiresIn: '30d' });
+        // Generar el token de autenticación
+        const token = jsonwebtoken.sign({ user: user.dni }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
+        // Crear el objeto de log
         const logEntry = {
             user_id: user.id_usuario,
             action: 'Inicio de sesión',
@@ -124,31 +124,45 @@ const checkLogin = (req, res) => {
             response_status: 200,
         };
 
-        db.query('INSERT INTO logs_auditoria SET ?', logEntry, (logErr) => {
-            if (logErr) console.error('Error al registrar log:', logErr);
-        });
+        // Registrar el log
+        try {
+            await query('INSERT INTO logs_auditoria SET ?', logEntry);
+        } catch (logErr) {
+            console.error('Error al registrar log:', logErr);
+        }
 
+        // Enviar la respuesta con el token
         res.status(200).json({ token, id_rol: user.id_rol, id_user: user.id_usuario });
-    });
+    } catch (err) {
+        console.error('Error en el login:', err);
+        res.status(500).send('Error interno del servidor');
+    }
 };
 
-const logout = (req, res) => {
-    res.send("Sesión cerrada exitosamente");
+const logout = async (req, res) => {
+    try {
+        res.status(200).send("Sesión cerrada exitosamente");
+    } catch (error) {
+        console.error("Error en el logout:", error);
+        res.status(500).send("Error interno del servidor");
+    }
 };
 
-const checkAuthentication = (req, res) => {
+const checkAuthentication = async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).send('Usuario no autenticado');
 
         const decoded = jsonwebtoken.verify(token, process.env.JWT_SECRET);
-        db.query('SELECT * FROM usuarios WHERE dni = ?', [decoded.user], (err, result) => {
-            if (err || result.length === 0) return res.status(401).send('Usuario no encontrado');
-            
-            const usuario = result[0];
-            
-            res.status(200).json({ message: "Usuario autenticado", usuario });
-        });
+
+        // Realizar la consulta de usuario de manera asíncrona
+        const result = await query('SELECT * FROM usuarios WHERE dni = ?', [decoded.user]);
+    
+        if (result.length === 0) return res.status(401).send('Usuario no encontrado');
+        
+        const usuario = result[0];
+        
+        res.status(200).json({ message: "Usuario autenticado", usuario });
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
             return res.status(401).send('Token expirado');
@@ -158,7 +172,7 @@ const checkAuthentication = (req, res) => {
     }
 };
 
-const activarCuenta = (req, res) => {
+const activarCuenta = async (req, res) => {
     const { dni } = req.query;
 
     if (!dni) {
@@ -166,11 +180,8 @@ const activarCuenta = (req, res) => {
         return res.status(400).send('Falta DNI');
     }
 
-    db.query('UPDATE usuarios SET estado = ? WHERE dni = ?', ['A', dni], (err, result) => {
-        if (err) {
-            console.error('Error al actualizar el estado del usuario:', err);
-            return res.status(500).send('Error interno del servidor');
-        }
+    try {
+        const result = await query('UPDATE usuarios SET estado = ? WHERE dni = ?', ['A', dni]);
 
         console.log(`Resultado de la actualización: ${result.affectedRows}`);
 
@@ -181,10 +192,13 @@ const activarCuenta = (req, res) => {
 
         console.log('Redirigiendo a login...');
         res.redirect(`${URL_FRONT}/login?activada=true`);
-    });
+    } catch (err) {
+        console.error('Error al actualizar el estado del usuario:', err);
+        return res.status(500).send('Error interno del servidor');
+    }
 };
 
-const activarCambioEmail = (req, res) => {
+const activarCambioEmail = async (req, res) => {
     const { dni } = req.query;
 
     if (!dni) {
@@ -192,22 +206,21 @@ const activarCambioEmail = (req, res) => {
         return res.status(400).send('Falta DNI');
     }
 
-    db.query('UPDATE usuarios SET estado = ? WHERE dni = ?', ['A', dni], (err, result) => {
-        if (err) {
-            console.error('Error al actualizar el estado del usuario:', err);
-            return res.status(500).send('Error interno del servidor');
-        }
+    try {
+        const result = await query('UPDATE usuarios SET estado = ? WHERE dni = ?', ['A', dni]);
 
         console.log(`Resultado de la actualización: ${result.affectedRows}`);
-        
+
         if (result.affectedRows === 0) {
             console.log('El usuario no existe o ya está activado');
             return res.status(400).send('El usuario no existe o ya está activado');
         }
 
         res.redirect(`${URL_FRONT}/confirm-email-change`);
-
-    });
+    } catch (err) {
+        console.error('Error al actualizar el estado del usuario:', err);
+        return res.status(500).send('Error interno del servidor');
+    }
 };
 
 const forgotPasswordHandler = async (req, res) => {
@@ -218,107 +231,78 @@ const forgotPasswordHandler = async (req, res) => {
     }
 
     try {
-        db.query('SELECT dni, email FROM usuarios WHERE email = ?', [email], async (err, result) => {
-            if (err) {
-                console.error('Error al encontrar el email del usuario:', err);
-                return res.status(500).send('Error interno del servidor');
-            }
+        const result = await query('SELECT dni, email FROM usuarios WHERE email = ?', [email]);
 
-            if (result.length === 0) {
-                return res.status(404).send('Email no encontrado');
-            }
+        if (result.length === 0) {
+            return res.status(404).send('Email no encontrado');
+        }
 
-            const { dni, email: userEmail } = result[0];
+        const { dni, email: userEmail } = result[0];
 
-            // Generar y almacenar el token de recuperación
-            const tokenExpiration = Date.now() + 3 * 60 * 1000; // 3 minutos desde ahora
-            const resetToken = jsonwebtoken.sign({ dni }, 'your-secret-key', { expiresIn: '3m' });
+        // Generar y almacenar el token de recuperación
+        const tokenExpiration = Date.now() + 3 * 60 * 1000; // 3 minutos desde ahora
+        const resetToken = jsonwebtoken.sign({ dni }, 'your-secret-key', { expiresIn: '3m' });
 
-            db.query('UPDATE usuarios SET reset_token = ?, reset_token_expiration = ? WHERE dni = ?', 
-            [resetToken, tokenExpiration, dni], async (err) => {
-                if (err) {
-                    console.error('Error al guardar el token de recuperación en la base de datos:', err);
-                    return res.status(500).send('Error interno del servidor');
-                }
+        await query('UPDATE usuarios SET reset_token = ?, reset_token_expiration = ? WHERE dni = ?', 
+            [resetToken, tokenExpiration, dni]);
 
-                try {
-                    await mailer.forgotPassword(userEmail, dni);
-                    return res.status(200).send("Mail de recuperación enviado con éxito");
-                } catch (mailError) {
-                    console.error('Error al enviar el correo:', mailError);
-                    return res.status(500).json({ message: 'Hubo un error en el envío del mail de recuperación' });
-                }
-            });
-        });
+        try {
+            await mailer.forgotPassword(userEmail, dni);
+            return res.status(200).send("Mail de recuperación enviado con éxito");
+        } catch (mailError) {
+            console.error('Error al enviar el correo:', mailError);
+            return res.status(500).json({ message: 'Hubo un error en el envío del mail de recuperación' });
+        }
+
     } catch (error) {
         console.error('Error al procesar la solicitud:', error);
-        res.status(500).json({ message: 'Hubo un error en el envío del mail de recuperación' });
+        return res.status(500).json({ message: 'Hubo un error en el envío del mail de recuperación' });
     }
 };
 
-const changeNewPassword = (req, res) => {
+const changeNewPassword = async (req, res) => {
     const { clave, token } = req.body;
 
     if (!clave || !token) {
         return res.status(400).send("Clave y token son requeridos");
     }
 
-    // Verificar el token
-    jsonwebtoken.verify(token, 'your-secret-key', (err, decoded) => {
-        if (err) {
-            return res.status(400).send("Token inválido o expirado");
-        }
-
+    try {
+        const decoded = jsonwebtoken.verify(token, 'your-secret-key');
         const { dni } = decoded;
 
-        // Verificar si el token ha expirado
-        db.query('SELECT reset_token_expiration FROM usuarios WHERE dni = ?', [dni], (err, results) => {
-            if (err) {
-                console.error("Error al consultar la base de datos:", err);
-                return res.status(500).send("Error interno del servidor");
-            }
+        const results = await query('SELECT reset_token_expiration FROM usuarios WHERE dni = ?', [dni]);
 
-            if (results.length === 0) {
-                return res.status(404).send("Usuario no encontrado");
-            }
+        if (results.length === 0) {
+            return res.status(404).send("Usuario no encontrado");
+        }
 
-            const resetTokenExpiration = results[0].reset_token_expiration;
-            const currentTime = Date.now();
+        const resetTokenExpiration = results[0].reset_token_expiration;
+        const currentTime = Date.now();
 
-            if (currentTime > resetTokenExpiration) {
-                return res.status(400).send("El token ha expirado");
-            }
+        if (currentTime > resetTokenExpiration) {
+            return res.status(400).send("El token ha expirado");
+        }
 
-            // Si el token es válido y no ha expirado, actualizar la contraseña
-            bcryptjs.genSalt(10, (err, salt) => {
-                if (err) {
-                    console.error("Error al generar la sal:", err);
-                    return res.status(500).send("Error interno del servidor");
-                }
+        const salt = await bcryptjs.genSalt(10);
+        const hash = await bcryptjs.hash(clave, salt);
 
-                bcryptjs.hash(clave, salt, (err, hash) => {
-                    if (err) {
-                        console.error("Error al encriptar la contraseña:", err);
-                        return res.status(500).send("Error interno del servidor");
-                    }
+        const [updateResults] = await query('UPDATE usuarios SET clave = ?, reset_token = NULL, reset_token_expiration = NULL WHERE dni = ?', 
+            [hash, dni]);
 
-                    db.query('UPDATE usuarios SET clave = ?, reset_token = NULL, reset_token_expiration = NULL WHERE dni = ?', 
-                    [hash, dni], (err, results) => {
-                        if (err) {
-                            console.error("Error al actualizar la contraseña en la base de datos:", err);
-                            return res.status(500).send("Error interno del servidor");
-                        }
+        if (updateResults.affectedRows === 0) {
+            return res.status(404).send("Usuario no encontrado");
+        }
 
-                        if (results.affectedRows === 0) {
-                            return res.status(404).send("Usuario no encontrado");
-                        }
+        res.status(200).send("Contraseña actualizada exitosamente");
 
-                        res.status(200).send("Contraseña actualizada exitosamente");
-                    });
-                });
-            });
-        });
-    });
+    } catch (err) {
+        if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+            return res.status(400).send("Token inválido o expirado");
+        }
+        console.error("Error en changeNewPassword:", err);
+        return res.status(500).send("Error interno del servidor");
+    }
 };
 
 module.exports = {

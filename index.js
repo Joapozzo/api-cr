@@ -12,7 +12,7 @@ const allowedOrigins = [
     'https://coparelampago.com', //
     'https://www.coparelampago.com',
     'http://localhost:5173',
-
+    'http://localhost:4173',
 ];
 
 const app = express();

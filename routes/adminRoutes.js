@@ -23,7 +23,7 @@ router.post('/crear-expulsion', revisarToken, revisarAdmin, logMiddleware, admin
 
 //Partidos
 router.post('/crear-partido', revisarToken, revisarAdmin, logMiddleware, partidosController.crearPartido);
-router.put('/actualizar-partido', revisarToken, revisarAdmin, logMiddleware, partidosController.updatePartido);
+router.put('/actualizar-partido', partidosController.updatePartido);
 router.post('/importar-partidos', revisarToken, revisarAdmin, logMiddleware, partidosController.importarPartidos);
 router.post('/eliminar-partido', revisarToken, revisarAdmin, logMiddleware, partidosController.deletePartido);
 

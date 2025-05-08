@@ -1,13 +1,13 @@
-const db = require('../utils/db');
+const { query } = require("../utils/db");
 
-const getEquipos = (req, res) => {
-    const { id_categoria } = req.query;
-    
-    let query;
-    let params = [];
+const getEquipos = async (req, res) => {
+  const { id_categoria } = req.query;
 
-    if (id_categoria) {
-        query = `
+  let sql;
+  let params = [];
+
+  if (id_categoria) {
+    sql = `
             SELECT
                 e.id_equipo,
                 e.nombre,
@@ -125,9 +125,9 @@ const getEquipos = (req, res) => {
             ORDER BY 
                 e.nombre;
         `;
-        params = [id_categoria];
-    } else {
-        query = `
+    params = [id_categoria];
+  } else {
+    sql = `
             SELECT
                 e.id_equipo,
                 e.nombre,
@@ -174,184 +174,165 @@ const getEquipos = (req, res) => {
             ORDER BY 
                 e.nombre;
         `;
-    }
+  }
 
-    db.query(query, params, (err, result) => {
-        if (err) {
-            console.error("Error en la consulta:", err);
-            return res.status(500).send('Error interno del servidor');
-        }
-        res.send(result);
-    });
+  try {
+    const result = await query(sql, params);
+    res.send(result);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error interno del servidor" });
+    console.error(error);
+  }
 };
 
-const crearEquipo = (req, res) => {
-    const { nombre, id_categoria, id_edicion, id_zona, vacante } = req.body;
-    console.log(nombre, id_categoria, id_edicion, id_zona, vacante);
-    
-    // Llamar al procedimiento almacenado con los parámetros correspondientes
-    db.query(
-        `CALL sp_crear_equipo(?, ?, ?, ?, ?)`, 
-        [nombre, id_categoria, id_edicion, id_zona, vacante], 
-        (err, result) => {
-            if (err) {
-                console.error('Error al ejecutar el procedimiento:', err);
-                return res.status(500).json({ mensaje: 'Error interno del servidor' });
-            }
-            res.status(200).json({ mensaje: 'Equipo registrado con éxito' });
-        }
-    );
+const crearEquipo = async (req, res) => {
+  const { nombre, id_categoria, id_edicion, id_zona, vacante } = req.body;
+
+  try {
+    await query(`CALL sp_crear_equipo(?, ?, ?, ?, ?)`, [nombre, id_categoria, id_edicion, id_zona, vacante]);
+    res.status(200).json({ mensaje: "Equipo registrado con éxito" });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error interno del servidor" });
+    console.error(error);
+  }
 };
 
-const updateEquipo = (req, res) => {
-    const { id_equipo, nombre, img } = req.body;
+const updateEquipo = async (req, res) => {
+  const { id_equipo, nombre, img } = req.body;
 
-    // Validar que el id esté presente
+  // Validar que el id esté presente
+  if (!id_equipo) {
+    return res.status(400).send("ID de equipo es requerido");
+  }
+
+  // Construir la consulta SQL
+  const sql = `
+    UPDATE equipos
+    SET 
+      nombre = ?,
+      img = ?
+    WHERE id_equipo = ?;
+  `;
+
+  try {
+    await query(sql, [nombre, img, id_equipo]);
+    res.status(200).send("Equipo actualizado exitosamente");
+  } catch (err) {
+    console.error("Error al actualizar equipo:", err);
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const getJugadoresEquipo = async (req, res) => {
+  const { id_equipo, id_categoria } = req.query;
+  try {
     if (!id_equipo) {
-        return res.status(400).send('ID de equipo es requerido');
+      return res.status(400).send("ID de equipo es requerido");
     }
-
-    // Construir la consulta SQL
-    const sql = `
-        UPDATE equipos
-        SET 
-            nombre = ?,
-            img = ?
-        WHERE id_equipo = ?;
-    `;
-
-    // Ejecutar la consulta
-    db.query(sql, [nombre, img, id_equipo], (err, result) => {
-        if (err) {
-            return res.status(500).send('Error interno del servidor');
-        }
-        res.send('Equipo actualizado exitosamente');
-    });
+    if (!id_categoria) {
+      return res.status(400).send("ID de categoria es requerido");
+    }
+    const result = await query("CALL sp_jugadores_equipo(?, ?)", [id_equipo, id_categoria]);
+    if (result.length === 0) {
+      return res.status(404).send("No se encontraron jugadores en el equipo especificado.");
+    }
+    const rows = result[0];
+    res.status(200).json(rows);
+  } catch (error) {
+    res.status(500).send("Error interno del servidor");
+    console.error(error);
+  }
 };
 
-const getJugadoresEquipo = (req, res) => {
-    const { id_equipo, id_categoria } = req.query;
+const getParticipacionesEquipo = async (req, res) => {
+  const { id_equipo } = req.query;
 
-    db.query('CALL sp_jugadores_equipo(?, ?)', [id_equipo, id_categoria], (err, result) => {
-        if (err) {
-            console.error("Error al ejecutar el procedimiento almacenado:", err);
-            if (err.sqlState === '45000') {
-                return res.status(400).send(err.sqlMessage);
-            }
-            return res.status(500).send("Error interno del servidor");
-        }
+  try {
+    const result = await query("CALL sp_obtener_estadisticas_equipo_categoria(?)", [id_equipo]);
 
-        // Si result está vacío, verifica que el procedimiento almacenado no esté retornando resultados vacíos
-        if (!result || result.length === 0) {
-            return res.status(404).send("No se encontraron jugadores en el equipo especificado.");
-        }
-
-        // En result, el primer elemento del array contiene el conjunto de resultados del procedimiento almacenado
-        const [rows] = result;
-
-        // Devuelve los datos
-        res.status(200).json(rows);
-    });
-}
-
-const getParticipacionesEquipo = (req, res) => {
-    const { id_equipo } = req.query;
-
-    db.query('CALL sp_obtener_estadisticas_equipo_categoria(?)', [id_equipo], (err, result) => {
-        if (err) {
-            console.error("Error al ejecutar el procedimiento almacenado:", err);
-            if (err.sqlState === '45000') {
-                return res.status(400).send(err.sqlMessage);
-            }
-            return res.status(500).send("Error interno del servidor");
-        }
-
-        // Si result está vacío, verifica que el procedimiento almacenado no esté retornando resultados vacíos
-        if (!result || result.length === 0) {
-            return res.status(404).send("No se encontraron estadisticas.");
-        }
-
-        // En result, el primer elemento del array contiene el conjunto de resultados del procedimiento almacenado
-        const [rows] = result;
-
-        // Devuelve los datos
-        res.status(200).json(rows);
-    });
-}
-
-
-const eliminarEquipo = (req, res) => {
-    const { id } = req.body;
-    
-    // Sentencia SQL para eliminar el año por ID
-    const sql = 'DELETE FROM equipos WHERE id_equipo = ?';
-
-    db.query(sql, [id], (err, result) => {
-        if (err) {
-            console.error('Error eliminando la edicion:', err);
-            return res.status(500).send('Error eliminando la edicion');
-        }
-        res.status(200).send('Edicion eliminada correctamente');
-    });
-};
-
-const actualizarCategoriaEquipo = (req, res) => {
-    const { id_categoriaNueva, id_equipo } = req.body;
-
-    // Validar que el id esté presente
-    if (!id_equipo) {
-        return res.status(400).send('ID de equipo es requerido');
+    if (!result || result.length === 0) {
+      return res.status(404).send("No se encontraron estadisticas.");
     }
 
-    // Construir la consulta SQL
-    const sql = `
-        UPDATE equipos
-        SET 
-            id_categoria = ?
-        WHERE id_equipo = ?;
-    `;
+    const [rows] = result;
 
-    // Ejecutar la consulta
-    db.query(sql, [id_categoriaNueva, id_equipo ], (err, result) => {
-        if (err) {
-            return res.status(500).send('Error interno del servidor');
-        }
-        res.send('Equipo actualizado exitosamente');
-    });
-};
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error("Error al ejecutar el procedimiento almacenado:", err);
 
-const actualizarApercibimientos = (req, res) => {
-    const { id_categoria, id_equipo, id_zona, apercibimientos } = req.body;
-
-    // Validar que el id esté presente
-    if (!id_equipo) {
-        return res.status(400).send('ID de equipo es requerido');
+    if (err.sqlState === "45000") {
+      return res.status(400).send(err.sqlMessage);
     }
 
-    // Construir la consulta SQL
-    const sql = `
-        UPDATE temporadas
-        SET 
-            apercibimientos = ?
-        WHERE id_equipo = ? AND id_categoria = ? AND id_zona = ?;
-    `;
+    res.status(500).send("Error interno del servidor");
+  }
+};
 
-    // Ejecutar la consulta
-    db.query(sql, [apercibimientos, id_equipo, id_categoria, id_zona], (err, result) => {
-        if (err) {
-            return res.status(500).send('Error interno del servidor');
-        }        
-        res.send('Equipo actualizado exitosamente');
-    });
+const eliminarEquipo = async (req, res) => {
+  const { id } = req.body;
+
+  const sql = "DELETE FROM equipos WHERE id_equipo = ?";
+
+  try {
+    await query(sql, [id]);
+    res.status(200).send("Edición eliminada correctamente");
+  } catch (err) {
+    console.error("Error eliminando la edición:", err);
+    res.status(500).send("Error eliminando la edición");
+  }
+};
+
+const actualizarCategoriaEquipo = async (req, res) => {
+  const { id_categoriaNueva, id_equipo } = req.body;
+
+  if (!id_equipo) {
+    return res.status(400).send("ID de equipo es requerido");
+  }
+
+  const sql = `
+    UPDATE equipos
+    SET id_categoria = ?
+    WHERE id_equipo = ?;
+  `;
+
+  try {
+    await query(sql, [id_categoriaNueva, id_equipo]);
+    res.send("Equipo actualizado exitosamente");
+  } catch (err) {
+    console.error("Error actualizando equipo:", err);
+    res.status(500).send("Error interno del servidor");
+  }
+};
+
+const actualizarApercibimientos = async (req, res) => {
+  const { id_categoria, id_equipo, id_zona, apercibimientos } = req.body;
+
+  if (!id_equipo) {
+    return res.status(400).send("ID de equipo es requerido");
+  }
+
+  const sql = `
+    UPDATE temporadas
+    SET apercibimientos = ?
+    WHERE id_equipo = ? AND id_categoria = ? AND id_zona = ?;
+  `;
+
+  try {
+    await query(sql, [apercibimientos, id_equipo, id_categoria, id_zona]);
+    res.send("Equipo actualizado exitosamente");
+  } catch (err) {
+    console.error("Error actualizando apercibimientos:", err);
+    res.status(500).send("Error interno del servidor");
+  }
 };
 
 module.exports = {
-    getEquipos,
-    crearEquipo,
-    updateEquipo,
-    actualizarCategoriaEquipo,
-    getJugadoresEquipo,
-    eliminarEquipo,
-    actualizarApercibimientos,
-    getParticipacionesEquipo
+  getEquipos,
+  crearEquipo,
+  updateEquipo,
+  actualizarCategoriaEquipo,
+  getJugadoresEquipo,
+  eliminarEquipo,
+  actualizarApercibimientos,
+  getParticipacionesEquipo,
 };

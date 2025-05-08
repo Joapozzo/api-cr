@@ -1,7 +1,7 @@
-const db = require('../utils/db');
+const { query } = require('../utils/db');
 
-const getPlanteles = (req, res) => {
-    const { id_equipo, id_categoria } = req.query; // Obtener los parámetros de la URL
+const getPlanteles = async (req, res) => {
+    const { id_equipo, id_categoria } = req.query;
 
     const sql = `
         SELECT 
@@ -42,13 +42,16 @@ const getPlanteles = (req, res) => {
             j.apellido;
     `;
 
-    db.query(sql, [id_equipo, id_equipo, id_categoria, id_categoria], (err, result) => {
-        if (err) {
-            console.error('Error en la consulta de planteles:', err);
-            return res.status(500).send('Error interno del servidor');
+    try {
+        if (!id_equipo && !id_categoria) {
+            return res.status(400).send('Faltan parámetros');
         }
-        res.send(result);
-    });
+        const result = await query(sql, [id_equipo, id_equipo, id_categoria, id_categoria]);
+        res.status(200).send(result);
+    } catch (error) {
+        res.status(500).send("Error interno del servidor");
+        console.error("Error en la consulta de planteles:", error);
+    }
 };
 
 module.exports = { getPlanteles };

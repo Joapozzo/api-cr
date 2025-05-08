@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/get-partidos-planillero', revisarToken, revisarPlanillero, planillaController.getPartidosPlanillero);
 router.get('/get-partidos-incidencias', planillaController.getPartidoIncidencias);
 router.get('/get-partido-formaciones', planillaController.getPartidoFormaciones);
-router.post('/calcular-expulsiones', revisarToken, revisarPlanillero, expulsadosController.calcularExpulsiones);
+router.post('/calcular-expulsiones', expulsadosController.calcularExpulsiones);
 
 router.post('/firma-jugador', revisarToken, revisarPlanillero, planillaController.firmaJugador);
 

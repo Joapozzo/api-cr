@@ -1,13 +1,13 @@
-const db = require('../utils/db');
+const { query } = require('../utils/db');
 const { esPartidoVuelta } = require('./helpers/partidosHelpers');
 
-const getPartidos = (req, res) => {
-    const { id_categoria } = req.query; // Obtiene el id_categoria desde los parámetros de consulta
-    let query;
+const getPartidos = async (req, res) => {
+    const { id_categoria } = req.query;
+    let sql;
     let params = [];
 
     if (id_categoria) {
-        query = `
+        sql = `
             SELECT
                 p.id_edicion,
                 p.id_zona,
@@ -77,7 +77,7 @@ const getPartidos = (req, res) => {
         `;
         params = [id_categoria];
     } else {
-        query = `
+        sql = `
             SELECT
                 p.id_edicion,
                 p.id_zona,
@@ -145,104 +145,98 @@ const getPartidos = (req, res) => {
         `;
     }
 
-    db.query(query, params, (err, result) => {
-        if (err) {
-            console.error("Error en la consulta:", err);
-            return res.status(500).send('Error interno del servidor');
-        }
+    try {
+        const result = await query(sql, params);
         res.send(result);
-    });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+    
 };
 
-const getIncidenciasPartido = (req, res) => {
+const getIncidenciasPartido = async (req, res) => {
     const { id_partido } = req.query;
 
-    db.query('CALL sp_partidos_incidencias(?)', [id_partido], (err, result) => {
-        if (err) {
-            console.error("Error al ejecutar el procedimiento almacenado:", err);
-            if (err.sqlState === '45000') {
-                return res.status(400).send(err.sqlMessage);
-            }
-            return res.status(500).send("Error interno del servidor");
-        }
+    try {
+        const result = await query('CALL sp_partidos_incidencias(?)', [id_partido]);
 
-        // Si result está vacío, verifica que el procedimiento almacenado no esté retornando resultados vacíos
         if (!result || result.length === 0) {
             return res.status(404).send("No se encontraron incidencias para el partido especificado.");
         }
 
-        // En result, el primer elemento del array contiene el conjunto de resultados del procedimiento almacenado
         const [rows] = result;
-
-        // Devuelve los datos
         res.status(200).json(rows);
-    });
-}
 
-const getFormacionesPartido = (req, res) => {
+    } catch (err) {
+        console.error("Error al ejecutar el procedimiento almacenado:", err);
+        if (err.sqlState === '45000') {
+            return res.status(400).send(err.sqlMessage);
+        }
+        return res.status(500).send("Error interno del servidor");
+    }
+};
+
+const getFormacionesPartido = async (req, res) => {
     const { id_partido } = req.query;
 
+    try {
+        const result = await query('CALL sp_partidos_formaciones(?)', [id_partido]);
 
-    // Luego, obtiene las formaciones del partido
-    db.query('CALL sp_partidos_formaciones(?)', [id_partido], (err, result) => {
-        if (err) {
-            console.error("Error al ejecutar el procedimiento almacenado de formaciones:", err);
-            if (err.sqlState === '45000') {
-                return res.status(400).send(err.sqlMessage);
-            }
-            return res.status(500).send("Error interno del servidor");
-        }
-
-        // Si result está vacío, verifica que el procedimiento almacenado no esté retornando resultados vacíos
         if (!result || result.length === 0) {
             return res.status(404).send("No se encontraron incidencias para el partido especificado.");
         }
 
-        // En result, el primer elemento del array contiene el conjunto de resultados del procedimiento almacenado
         const [rows] = result;
-
-        // Devuelve los datos
         res.status(200).json(rows);
-    });
+
+    } catch (err) {
+        console.error("Error al ejecutar el procedimiento almacenado de formaciones:", err);
+        if (err.sqlState === '45000') {
+            return res.status(400).send(err.sqlMessage);
+        }
+        return res.status(500).send("Error interno del servidor");
+    }
 };
 
-const crearPartido = (req, res) => {
+const crearPartido = async (req, res) => {
     const { id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, arbitro, id_planillero, id_edicion, id_categoria, id_zona, interzonal, ventaja_deportiva } = req.body;
 
     if (!id_equipoLocal || !id_equipoVisita || !id_categoria || !id_edicion || !id_zona) {
-        return res.status(400).json({mensaje: 'Faltan datos importantes'});
+        return res.status(400).json({ mensaje: 'Faltan datos importantes' });
     }
 
-    db.query(`
-        INSERT INTO partidos(
-            id_equipoLocal, 
-            id_equipoVisita, 
-            jornada, 
-            dia, 
-            hora, 
-            cancha, 
-            arbitro, 
-            id_planillero,
-            id_edicion,
-            id_categoria,
-            id_zona,
-            interzonal,
-            ventaja_deportiva
-        ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        [id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, arbitro, id_planillero, id_edicion, id_categoria, id_zona, interzonal, ventaja_deportiva], (err, result) => {
-        if (err) {
-            console.error("Error al ejecutar la consulta SQL:", err);
-            return res.status(500).json({mensaje: 'Error al interno en el servidor al intentar crear el partido'});
-        }
+    try {
+        await query(`
+            INSERT INTO partidos(
+                id_equipoLocal, 
+                id_equipoVisita, 
+                jornada, 
+                dia, 
+                hora, 
+                cancha, 
+                arbitro, 
+                id_planillero,
+                id_edicion,
+                id_categoria,
+                id_zona,
+                interzonal,
+                ventaja_deportiva
+            ) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        `, [id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, arbitro, id_planillero, id_edicion, id_categoria, id_zona, interzonal, ventaja_deportiva]);
 
-        return res.status(200).json({mensaje: 'Partido creado con éxito'});
+        return res.status(200).json({ mensaje: 'Partido creado con éxito' });
 
-    });
+    } catch (err) {
+        console.error("Error al ejecutar la consulta SQL:", err);
+        return res.status(500).json({ mensaje: 'Error al interno en el servidor al intentar crear el partido' });
+    }
 };
 
-const importarPartidos = (req, res) => {
+const importarPartidos = async (req, res) => {
     const partidos = req.body;
+
     if (!Array.isArray(partidos)) {
         return res.status(400).send('Invalid data format');
     }
@@ -250,22 +244,31 @@ const importarPartidos = (req, res) => {
     // Construye el query para insertar múltiples registros
     const values = partidos.map(({ id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, id_categoria, id_zona, id_edicion }) => [id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, id_categoria, id_zona, id_edicion]);
     const query = 'INSERT INTO partidos (id_equipoLocal, id_equipoVisita, jornada, dia, hora, cancha, id_categoria, id_zona, id_edicion) VALUES ?';
-
-    db.query(query, [values], (err, result) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Error al insertar datos en la base de datos');
-        }
-        res.status(200).send('Datos importados correctamente');
-    });
+    try {
+        await query(query, [values]);
+        return res.status(200).json({ mensaje: 'Partidos importados con éxito' });
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error interno del servidor' });
+        console.error('Error al importar partidos:', error);
+    }
 };
 
-const getPlantelesPartido = (req, res) => {
+const getPlantelesPartido = async (req, res) => {
     const { id_partido } = req.query;
 
+    try {
+    const [result] = await query('CALL sp_get_planteles(?)', [id_partido]);
+        if (result.length === 0) {
+            return res.status(404).json({ mensaje: 'No se encontraron planteles para el partido especificado' });
+        }
+        return res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error interno del servidor' });
+        console.error('Error al obtener planteles del partido:', error);
+    }
 
     // Luego, obtiene las formaciones del partido
-    db.query('CALL sp_get_planteles(?)', [id_partido], (err, result) => {
+    query('CALL sp_get_planteles(?)', [id_partido], (err, result) => {
         if (err) {
             console.error("Error al ejecutar el procedimiento almacenado de planteles:", err);
             if (err.sqlState === '45000') {
@@ -288,6 +291,8 @@ const getPlantelesPartido = (req, res) => {
 };
 
 const updatePartido = async (req, res) => {
+    console.log('🟡 Entrando a updatePartido');
+
     const { 
         id_equipoLocal, 
         id_equipoVisita, 
@@ -310,12 +315,15 @@ const updatePartido = async (req, res) => {
         actualizar_partido
     } = req.body;
 
-    // Validar que id_partido esté presente
+    console.log('🔸 Datos recibidos:', {
+        id_partido, id_equipoLocal, id_equipoVisita, actualizar_partido
+    });
+
     if (!id_partido) {
-        return res.status(400).json({mensaje: 'ID de partido es requerido'});
+        console.warn('⚠️ ID de partido faltante');
+        return res.status(400).json({ mensaje: 'ID de partido es requerido' });
     }
 
-    // Construir la consulta SQL para actualizar el partido
     const sql = `
         UPDATE partidos
         SET 
@@ -339,96 +347,83 @@ const updatePartido = async (req, res) => {
         WHERE id_partido = ?
     `;
 
-    // Ejecutar la consulta para actualizar el partido
     try {
-        const updateResult = await new Promise((resolve, reject) => {
-            db.query(sql, [
-                id_equipoLocal, 
-                id_equipoVisita, 
-                goles_local,
-                goles_visita,
-                pen_local,
-                pen_visita,
-                jornada, 
-                dia, 
-                hora, 
-                cancha, 
-                arbitro, 
-                id_planillero, 
-                id_edicion, 
-                id_categoria, 
-                id_zona, 
-                estado,
-                ventaja_deportiva,
-                id_partido 
-            ], (err, result) => {
-                if (err) {
-                    reject('Error al actualizar el partido: ' + err);
-                } else {
-                    resolve(result);
-                }
-            });
-        });
+        console.log('🔵 Ejecutando UPDATE del partido...');
 
-        // Si `actualizar_partido` es verdadero, ejecutar el procedimiento almacenado
+        const updateResult = await query(sql, [
+            id_equipoLocal, 
+            id_equipoVisita, 
+            goles_local,
+            goles_visita,
+            pen_local,
+            pen_visita,
+            jornada, 
+            dia, 
+            hora, 
+            cancha, 
+            arbitro, 
+            id_planillero, 
+            id_edicion, 
+            id_categoria, 
+            id_zona, 
+            estado,
+            ventaja_deportiva,
+            id_partido 
+        ]);
+
+        console.log('✅ UPDATE ejecutado correctamente');
+
         if (actualizar_partido) {
-            const isVuelta = await esPartidoVuelta(id_partido, id_zona, db);
+            console.log('🔄 Se requiere ejecutar procedimiento almacenado');
+
+            const isVuelta = await esPartidoVuelta(id_partido, id_zona);
+            console.log('🔍 Resultado de esPartidoVuelta:', isVuelta);
 
             if (isVuelta) {
+                console.log('📌 Ejecutando SP: sp_actualizar_vacante_partido_ida_vuelta');
                 const spQuery = `CALL sp_actualizar_vacante_partido_ida_vuelta(?)`;
-                await new Promise((resolve, reject) => {
-                    db.query(spQuery, [id_partido], (spErr, spResult) => {
-                        if (spErr) {
-                            reject('Error al ejecutar sp_actualizar_vacante_partido_ida_vuelta: ' + spErr);
-                        } else {
-                            resolve(spResult);
-                        }
-                    });
-                });
-                return res.status(200).json({mensaje: 'Partido actualizado con éxito y procedimiento almacenado ejecutado para vuelta'});
+                await query(spQuery, [id_partido]);
+                console.log('✅ SP ida/vuelta ejecutado correctamente');
+                return res.status(200).json({ mensaje: 'Partido actualizado con éxito y procedimiento almacenado ejecutado para vuelta' });
             } else {
+                console.log('📌 Ejecutando SP: sp_actualizar_partido_vacante');
                 const spQuery = `CALL sp_actualizar_partido_vacante(?)`;
-                
-                await new Promise((resolve, reject) => {
-                    db.query(spQuery, [id_partido], (spErr, spResult) => {
-                        if (spErr) {
-                            reject('Error al ejecutar sp_actualizar_partido_vacante: ' + spErr);
-                        } else {
-                            resolve(spResult);
-                        }
-                    });
-                });
-                return res.status(200).json({mensaje: 'Partido actualizado con éxito y procedimiento almacenado ejecutado'});
+                await query(spQuery, [id_partido]);
+                console.log('✅ SP común ejecutado correctamente');
+                return res.status(200).json({ mensaje: 'Partido actualizado con éxito y procedimiento almacenado ejecutado' });
             }
         } else {
-            return res.status(200).json({mensaje: 'Partido actualizado con éxito'});
+            console.log('✅ No se requiere procedimiento almacenado, solo UPDATE');
+            return res.status(200).json({ mensaje: 'Partido actualizado con éxito' });
         }
 
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({mensaje: 'Error interno del servidor'});
+        console.error('❌ Excepción atrapada en try/catch:', error);
+        return res.status(500).json({ mensaje: 'Error interno del servidor', error });
     }
 };
 
-const deletePartido = (req, res) => {
+const deletePartido = async (req, res) => {
     const { id } = req.body;
     
     // Sentencia SQL para eliminar el año por ID
     const sql = 'DELETE FROM partidos WHERE id_partido = ?';
-
-    db.query(sql, [id], (err, result) => {
-        if (err) {
-            console.error('Error eliminando el partido:', err);
-            return res.status(500).json({mensaje: 'Hubo un error al intentar eliminar el partido'});
+    try {
+        if (!id) {
+            return res.status(400).json({ mensaje: 'Falta el id del partido' });
         }
-        return res.status(200).json({mensaje: 'Partido eliminado con éxito'});
-    });
+        await query(sql, [id]);
+        return res.status(200).json({ mensaje: 'Partido eliminado con éxito' });
+    } catch (error) {
+        res.status(500).json({ mensaje: "Error interno del servidor" });
+        console.error("Error al eliminar el partido:", error);
+    }
 };
 
-const getPartidosCategoria = (req, res) => {
+const getPartidosCategoria = async (req, res) => {
     const { id_categoria } = req.query;
 
-    const query = `
+    const sqlQuery = `
     SELECT 
         CONCAT(r.resultado, '-' ,p.id_partido) AS id_partido,
         p.id_zona,
@@ -462,23 +457,24 @@ const getPartidosCategoria = (req, res) => {
     ORDER BY 
         r.resultado ASC, -- Primero ganadores ('G') y luego perdedores ('P')
         p.id_partido;
-`;
+    `;
 
-    db.query(query, [id_categoria], (err, result) => {
-        if (err) {
-            console.error('Error al obtener los partidos de la zona:', err);
-            return res.status(500).send('Error interno del servidor');
+    try {
+        if (!id_categoria) {
+            return res.status(400).json({ mensaje: 'Falta el id de la categoria' });
         }
-
-        // Devuelve los datos
-        res.status(200).json(result);
-    });
+        const result = await query(sqlQuery, [id_categoria]);
+        return res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error interno del servidor' });
+        console.error('Error al obtener los partidos de la categoria:', error);
+    }
 };
 
-const getPartidosZona = (req, res) => {
+const getPartidosZona = async (req, res) => {
     const { id_zona } = req.query;
-
-    const query = `
+    
+    const SqlQuery = `
     SELECT 
         CONCAT(r.resultado, '-' ,p.id_partido) AS id_partido,
         CAST(
@@ -509,127 +505,104 @@ const getPartidosZona = (req, res) => {
         p.id_partido;
     `;
 
-    db.query(query, [id_zona], (err, result) => {
-        if (err) {
-            console.error('Error al obtener los partidos de la zona:', err);
-            return res.status(500).send('Error interno del servidor');
+    try {
+        if (!id_zona) {
+            return res.status(400).json({ mensaje: 'Falta el id de la zona' });
         }
-
-        // Devuelve los datos
-        res.status(200).json(result);
-    });
+        const result = await query(SqlQuery, [id_zona]);
+        return res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error interno del servidor' });
+        console.error('Error al obtener los partidos de la zona:', error);
+    }
 };
 
-const guardarVacantePlayOff = (req, res) => {
-    const {id_categoria, id_edicion, id_zona, id_zona_previa, posicion_previa, id_partido, id_partido_previo, vacante, resultado} = req.body;
+const guardarVacantePlayOff = async (req, res) => {
+    const {
+        id_categoria,
+        id_edicion,
+        id_zona,
+        id_zona_previa,
+        posicion_previa,
+        id_partido,
+        id_partido_previo,
+        vacante,
+        resultado
+    } = req.body;
 
-    // si la zona a actualizar es todos contra todos, damos la posicion previa que obtendra la vacante
-    if (posicion_previa) {
-        const sql = `
-            UPDATE temporadas
-            SET pos_zona_previa = ?, id_zona_previa = ?
-            WHERE id_zona = ? AND id_categoria = ? AND id_edicion = ? AND vacante = ?
-        `;
+    try {
+        if (posicion_previa) {
+            const sql = `
+                UPDATE temporadas
+                SET pos_zona_previa = ?, id_zona_previa = ?
+                WHERE id_zona = ? AND id_categoria = ? AND id_edicion = ? AND vacante = ?
+            `;
 
-        db.query(sql, [posicion_previa, id_zona_previa, id_zona, id_categoria, id_edicion, vacante], (err, result) => {
-            if (err) {
-                console.error('Error al guardar el vacante:', err);
-                return res.status(500).json({mensaje: 'Error interno del servidor'});
-            }
-            res.status(200).send({mensaje: 'Vacante guardada con éxito'});
-        });
-    } else {
-        // si no, se guarda el cruce del partido previo y la vacante
-        const query = `CALL sp_agregar_enfrentamiento_vacante(?, ?, ?, ?)`;
-    
-        db.query(query, [id_partido, id_partido_previo, vacante, resultado], (err, result) => {
-            if (err) {
-                console.error('Error al guardar el vacante:', err);
-                return res.status(500).json({mensaje: 'Error interno del servidor'});
-            }
-            res.status(200).send({mensaje: 'Vacante guardada con éxito'});
-        });
+            await query(sql, [posicion_previa, id_zona_previa, id_zona, id_categoria, id_edicion, vacante]);
+
+            res.status(200).send({ mensaje: 'Vacante guardada con éxito' });
+        } else {
+            const sql = `CALL sp_agregar_enfrentamiento_vacante(?, ?, ?, ?)`;
+
+            await query(sql, [id_partido, id_partido_previo, vacante, resultado]);
+
+            res.status(200).send({ mensaje: 'Vacante guardada con éxito' });
+        }
+    } catch (err) {
+        console.error('Error al guardar el vacante:', err);
+        return res.status(500).json({ mensaje: 'Error interno del servidor' });
     }
-}
+};
 
-const actualizarPartidoVacante = (req, res) => {
+const actualizarPartidoVacante = async (req, res) => {
     const { id_partido } = req.body;
 
-    // Paso 1: Obtener el id_zona del partido
-    const getIdZonaQuery = 'SELECT id_zona FROM partidos WHERE id_partido = ?';
+    try {
+        // Paso 1: Obtener el id_zona del partido
+        const getIdZonaQuery = 'SELECT id_zona FROM partidos WHERE id_partido = ?';
+        const zonaResult = await query(getIdZonaQuery, [id_partido]);
 
-    db.query(getIdZonaQuery, [id_partido], (err, result) => {
-        if (err) {
-            console.error('Error al obtener id_zona:', err);
-            return res.status(500).json({ message: 'Error al obtener la zona del partido' });
-        }
-
-        if (result.length === 0) {
+        if (zonaResult.length === 0) {
             return res.status(404).json({ message: 'Partido no encontrado' });
         }
 
-        const id_zona = result[0].id_zona;
+        const id_zona = zonaResult[0].id_zona;
 
-        // Paso 2: Verificar el tipo de zona (eliminación directa o ida-vuelta)
+        // Paso 2: Verificar el tipo de zona
         const getZoneTypeQuery = 'SELECT tipo_zona FROM zonas WHERE id_zona = ?';
+        const zoneTypeResult = await query(getZoneTypeQuery, [id_zona]);
 
-        db.query(getZoneTypeQuery, [id_zona], (err, results) => {
-            if (err) {
-                console.error('Error al obtener el tipo de zona:', err);
-                return res.status(500).json({ message: 'Error al obtener el tipo de zona' });
-            }
+        if (zoneTypeResult.length === 0) {
+            return res.status(404).json({ message: 'Zona no encontrada' });
+        }
 
-            if (results.length === 0) {
-                return res.status(404).json({ message: 'Zona no encontrada' });
-            }
+        const tipoZona = zoneTypeResult[0].tipo_zona.trim();
 
-            const tipoZona = results[0].tipo_zona.trim();
+        if (tipoZona === 'eliminacion-directa') {
+            // Si es una zona de eliminación directa, ejecutamos el SP correspondiente
+            console.log('Zona es de tipo "eliminacion-directa"');
+            const queryDirecta = 'CALL sp_actualizar_partido_vacante(?)';
+            await query(queryDirecta, [id_partido]);
+            res.json({ message: 'Partido de eliminación directa actualizado con éxito' });
 
-            if (tipoZona === 'eliminacion-directa') {
-                // Si es una zona de eliminación directa, ejecutamos el SP correspondiente
-                console.log('Zona es de tipo "eliminacion-directa"');
+        } else {
+            // Si no es eliminación directa, verificamos si es un partido ida-vuelta
+            console.log('La zona no es "eliminacion-directa", verificando ida-vuelta');
+            const isReturnMatch = await esPartidoVuelta(id_partido, id_zona, query);
 
-                const queryDirecta = 'CALL sp_actualizar_partido_vacante(?)';
-
-                db.query(queryDirecta, [id_partido], (err, result) => {
-                    if (err) {
-                        console.error('Error al ejecutar SP de eliminación directa:', err);
-                        return res.status(500).json({ message: 'Error al ejecutar el SP de eliminación directa' });
-                    }
-                    res.json({ message: 'Partido de eliminación directa actualizado con éxito' });
-                });
-
+            if (isReturnMatch) {
+                console.log('Es un partido de vuelta, ejecutando SP de ida-vuelta');
+                const queryIdaVuelta = 'CALL sp_actualizar_vacante_partido_ida_vuelta(?)';
+                await query(queryIdaVuelta, [id_partido]);
+                res.json({ message: 'Partido de ida-vuelta actualizado con éxito' });
             } else {
-                // Si no es eliminación directa, verificamos si es un partido ida-vuelta
-                console.log('La zona no es "eliminacion-directa", verificando ida-vuelta');
-
-                esPartidoVuelta(id_partido, id_zona, db)
-                    .then((isReturnMatch) => {
-                        if (isReturnMatch) {
-                            // Si es un partido de vuelta, ejecutamos el SP de ida-vuelta
-                            console.log('Es un partido de vuelta, ejecutando SP de ida-vuelta');
-
-                            const queryIdaVuelta = 'CALL sp_actualizar_vacante_partido_ida_vuelta(?)';
-
-                            db.query(queryIdaVuelta, [id_partido], (err, result) => {
-                                if (err) {
-                                    console.error('Error al ejecutar SP de ida-vuelta:', err);
-                                    return res.status(500).json({ message: 'Error al ejecutar el SP de ida-vuelta' });
-                                }
-                                res.json({ message: 'Partido de ida-vuelta actualizado con éxito' });
-                            });
-                        } else {
-                            // Si no es ida-vuelta, devolvemos un mensaje indicando que no es válido
-                            res.status(400).json({ message: 'El partido no es de ida-vuelta' });
-                        }
-                    })
-                    .catch((err) => {
-                        console.error('Error al verificar si es partido de vuelta:', err);
-                        return res.status(500).json({ message: 'Error al verificar si es partido de vuelta' });
-                    });
+                res.status(400).json({ message: 'El partido no es de ida-vuelta' });
             }
-        });
-    });
+        }
+    } catch (err) {
+        console.error('Error en actualizarPartidoVacante:', err);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
 };
 
 module.exports = {

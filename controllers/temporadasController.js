@@ -1,62 +1,52 @@
-const db = require('../utils/db');
+const { query: dbQuery } = require('../utils/db');
 
-const getPosicionesTemporada = (req, res) => {
+const getPosicionesTemporada = async (req, res) => {
     const { id_zona } = req.query;
 
-    db.query('CALL sp_posiciones_zona(?)', [id_zona], (err, result) => {
-        if (err) {
-            console.error("Error al ejecutar el procedimiento almacenado:", err);
-            if (err.sqlState === '45000') {
-                return res.status(400).send(err.sqlMessage);
-            }
-            return res.status(500).send("Error interno del servidor");
-        }
+    try {
+        const [result] = await dbQuery('CALL sp_posiciones_zona(?)', [id_zona]);
 
-        // Si result está vacío, verifica que el procedimiento almacenado no esté retornando resultados vacíos
         if (!result || result.length === 0) {
             return res.status(404).send("No se encontraron incidencias para el partido especificado.");
         }
 
-        // En result, el primer elemento del array contiene el conjunto de resultados del procedimiento almacenado
-        const [rows] = result;
+        res.status(200).json(result);
+    } catch (err) {
+        console.error("Error al ejecutar el procedimiento almacenado:", err);
+        if (err.sqlState === '45000') {
+            return res.status(400).send(err.sqlMessage);
+        }
+        res.status(500).send("Error interno del servidor");
+    }
+};
 
-        // Devuelve los datos
-        res.status(200).json(rows);
-    });
-}
-
-const getEstadisticasCategoria = (req, res) => {
+const getEstadisticasCategoria = async (req, res) => {
     const { id_categoria, estadistica } = req.query;
 
-    db.query('CALL sp_estadisticas_categoria(?,?)', [id_categoria, estadistica], (err, result) => {
-            if (err) {
-                console.error("Error al ejecutar el procedimiento almacenado:", err);
-                if (err.sqlState === '45000') {
-                    return res.status(400).send(err.sqlMessage);
-                }
-                return res.status(500).send("Error interno del servidor");
-            }
+    try {
+        const [result] = await dbQuery('CALL sp_estadisticas_categoria(?, ?)', [id_categoria, estadistica]);
 
-            // Si result está vacío, verifica que el procedimiento almacenado no esté retornando resultados vacíos
-            if (!result || result.length === 0) {
-                return res.status(404).send("No se encontraron goleadores para la temporada especificada.");
-            }
+        if (!result || result.length === 0) {
+            return res.status(404).send("No se encontraron goleadores para la temporada especificada.");
+        }
 
-            // En result, el primer elemento del array contiene el conjunto de resultados del procedimiento almacenado
-            const [rows] = result;
+        res.status(200).json(result);
+    } catch (err) {
+        console.error("Error al ejecutar el procedimiento almacenado:", err);
+        if (err.sqlState === '45000') {
+            return res.status(400).send(err.sqlMessage);
+        }
+        res.status(500).send("Error interno del servidor");
+    }
+};
 
-            // Devuelve los datos
-            res.status(200).json(rows);
-        });
-}
-
-const getZonas = (req, res) => {
-    const { id_categoria } = req.query; // Obtiene id_categoria desde los parámetros de consulta
-    let query;
+const getZonas = async (req, res) => {
+    const { id_categoria } = req.query;
+    let sql;
     let params = [];
 
     if (id_categoria) {
-        query = `
+        sql = `
             SELECT
                 z.id_zona,
                 c.id_categoria,
@@ -82,9 +72,9 @@ const getZonas = (req, res) => {
                 c.id_categoria = ?
             ORDER BY 3;
         `;
-        params = [id_categoria]; // Parámetro para filtrar por categoría
+        params = [id_categoria];
     } else {
-        query = `
+        sql = `
             SELECT
                 z.id_zona,
                 c.id_categoria,
@@ -110,213 +100,174 @@ const getZonas = (req, res) => {
         `;
     }
 
-    db.query(query, params, (err, result) => {
-        if (err) {
-            console.error("Error en la consulta:", err);
-            return res.status(500).send('Error interno del servidor');
-        }
-        res.send(result);
-    });
+    try {
+        const result = await dbQuery(sql, params);
+        res.status(200).json(result);
+    } catch (err) {
+        console.error("Error en la consulta:", err);
+        res.status(500).send('Error interno del servidor');
+    }
 };
 
-const getTemporadas = (req, res) => {
+const getTemporadas = async (req, res) => {
     const { idsCategorias: id_categoria } = req.query;
-
-    let query;
+    let sql;
     let values = [];
 
-    if (!id_categoria) { 
-        // Caso general: traer todas las temporadas
-        query = `
-        SELECT
-            t.id_zona,
-            z.tipo_zona,
-            t.id_edicion,
-            t.id_categoria,
-            t.id_equipo,
-            e.nombre AS nombre_equipo,
-            t.vacante,
-            t.apercibimientos,
-            t.pos_zona_previa,
-            t.id_zona_previa,
-            (SELECT COUNT(*)
-             FROM planteles p
-             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
-             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
-             AND j.dni IS NOT NULL
-             AND p.eventual = 'N') AS jugadores_con_dni,
-            (SELECT COUNT(*)
-             FROM planteles p
-             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
-             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
-             AND j.dni IS NULL
-             AND p.eventual = 'N') AS jugadores_sin_dni
-        FROM 
-            temporadas t
-            LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
-            LEFT JOIN zonas z ON z.id_zona = t.id_zona
-        ORDER BY e.nombre ASC;
+    if (!id_categoria) {
+        sql = `
+            SELECT
+                t.id_zona,
+                z.tipo_zona,
+                t.id_edicion,
+                t.id_categoria,
+                t.id_equipo,
+                e.nombre AS nombre_equipo,
+                t.vacante,
+                t.apercibimientos,
+                t.pos_zona_previa,
+                t.id_zona_previa,
+                (SELECT COUNT(*)
+                 FROM planteles p
+                 INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+                 WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
+                 AND j.dni IS NOT NULL
+                 AND p.eventual = 'N') AS jugadores_con_dni,
+                (SELECT COUNT(*)
+                 FROM planteles p
+                 INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+                 WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
+                 AND j.dni IS NULL
+                 AND p.eventual = 'N') AS jugadores_sin_dni
+            FROM 
+                temporadas t
+                LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
+                LEFT JOIN zonas z ON z.id_zona = t.id_zona
+            ORDER BY e.nombre ASC;
         `;
     } else {
-        // Caso filtrado: traer solo las temporadas de los `id_categoria` indicados
-        const categoriasArray = id_categoria.split(',').map(id => parseInt(id.trim())); // Convertir en array de números
-        const placeholders = categoriasArray.map(() => '?').join(','); // `?,?,?` para SQL
+        const categoriasArray = id_categoria.split(',').map(id => parseInt(id.trim()));
+        const placeholders = categoriasArray.map(() => '?').join(',');
         values = categoriasArray;
 
-        query = `
-        SELECT
-            t.id_zona,
-            z.tipo_zona,
-            t.id_edicion,
-            t.id_categoria,
-            t.id_equipo,
-            e.nombre AS nombre_equipo,
-            t.vacante,
-            t.apercibimientos,
-            t.pos_zona_previa,
-            t.id_zona_previa,
-            (SELECT COUNT(*)
-             FROM planteles p
-             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
-             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
-             AND j.dni IS NOT NULL
-             AND p.eventual = 'N') AS jugadores_con_dni,
-            (SELECT COUNT(*)
-             FROM planteles p
-             INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
-             WHERE p.id_equipo = t.id_equipo AND t.id_categoria = p.id_categoria
-             AND j.dni IS NULL
-             AND p.eventual = 'N') AS jugadores_sin_dni
-        FROM 
-            temporadas t
-            LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
-            LEFT JOIN zonas z ON z.id_zona = t.id_zona
-        WHERE t.id_categoria IN (${placeholders})  -- Se generan los placeholders dinámicamente
-        ORDER BY e.nombre ASC;
+        sql = `
+            SELECT
+                t.id_zona,
+                z.tipo_zona,
+                t.id_edicion,
+                t.id_categoria,
+                t.id_equipo,
+                e.nombre AS nombre_equipo,
+                t.vacante,
+                t.apercibimientos,
+                t.pos_zona_previa,
+                t.id_zona_previa,
+                (SELECT COUNT(*)
+                 FROM planteles p
+                 INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+                 WHERE p.id_equipo = t.id_equipo AND p.id_categoria = t.id_categoria
+                 AND j.dni IS NOT NULL
+                 AND p.eventual = 'N') AS jugadores_con_dni,
+                (SELECT COUNT(*)
+                 FROM planteles p
+                 INNER JOIN jugadores j ON p.id_jugador = j.id_jugador
+                 WHERE p.id_equipo = t.id_equipo AND p.id_categoria = t.id_categoria
+                 AND j.dni IS NULL
+                 AND p.eventual = 'N') AS jugadores_sin_dni
+            FROM 
+                temporadas t
+                LEFT JOIN equipos e ON e.id_equipo = t.id_equipo
+                LEFT JOIN zonas z ON z.id_zona = t.id_zona
+            WHERE t.id_categoria IN (${placeholders})
+            ORDER BY e.nombre ASC;
         `;
     }
 
-    db.query(query, values, (err, result) => {
-        if (err) return res.status(500).send('Error interno del servidor');
-        res.send(result);
-    });
+    try {
+        const result = await dbQuery(sql, values);
+        res.status(200).json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error interno del servidor');
+    }
 };
 
-const insertarEquipoTemporada = (req, res) => {
+const insertarEquipoTemporada = async (req, res) => {
     const { id_categoria, id_edicion, id_zona, id_equipo, vacante, id_partido } = req.body;
-    console.log(id_categoria, id_edicion, id_zona, id_equipo, vacante, id_partido);
-    
-    // Paso 1: Consultar el tipo de zona
-    const consultaTipoZona = `SELECT tipo_zona FROM zonas WHERE id_zona = ?`;
 
-    db.query(consultaTipoZona, [id_zona], (err, result) => {
-        if (err) {
-            console.error("Error al consultar el tipo de zona:", err);
-            return res.status(500).json({mensaje: 'Error al consultar el tipo de zona'});
-        }
-        
-        // Verificar si se encontró el tipo de zona
-        if (result.length === 0) {
-            console.warn("Zona no encontrada para id_zona:", id_zona);
-            return res.status(404).json({mensaje: 'Zona no encontrada'});
+    try {
+        const zonaResult = await dbQuery('SELECT tipo_zona FROM zonas WHERE id_zona = ?', [id_zona]);
+
+        if (!zonaResult) {
+            return res.status(404).json({ mensaje: 'Zona no encontrada' });
         }
 
-        const tipoZona = result[0].tipo_zona;
+        const tipoZona = zonaResult.tipo_zona;
 
-        // Paso 2: Insertar o actualizar el registro en la tabla temporadas
-        const query = `
+        await dbQuery(`
             UPDATE temporadas 
-            SET 
-                id_equipo = ?
-            WHERE 
-                id_categoria = ? AND 
-                id_edicion = ? AND
-                vacante = ? AND
-                id_zona = ?
-        `;
-    
-        db.query(query, [id_equipo, id_categoria, id_edicion, vacante, id_zona], (err, result) => {
-            if (err) {
-                console.error("Error al insertar o actualizar en temporadas:", err);
-                return res.status(500).json({mensaje: 'Error interno del servidor al insertar o actualizar'});
-            }
+            SET id_equipo = ?
+            WHERE id_categoria = ? AND id_edicion = ? AND vacante = ? AND id_zona = ?
+        `, [id_equipo, id_categoria, id_edicion, vacante, id_zona]);
 
-            // Paso 3: Si el tipo de zona es 'eliminacion-directa', llamar al procedimiento almacenado
-            if (tipoZona === 'eliminacion-directa' || tipoZona === 'eliminacion-directa-ida-vuelta') {
-                const spQuery = `CALL sp_agregar_vacante_zona(?, ?, ?, ?)`;
-                const spParams = [id_zona, id_equipo, vacante, id_partido];
-
-                db.query(spQuery, spParams, (err, spResult) => {
-                    if (err) {
-                        console.error("Error al ejecutar el procedimiento almacenado:", err);
-                        return res.status(500).json({mensaje: 'Error interno al ejecutar el procedimiento almacenado'});
-                    }
-
-                    return res.status(200).json({mensaje: 'Edición registrada o actualizada con éxito, y procedimiento ejecutado'});
-                });
-            } else {
-                console.log("Zona no es de tipo 'eliminacion-directa', no se llama al procedimiento almacenado.");
-                return res.status(200).json({mensaje: 'Edición registrada o actualizada con éxito'});
-            }
-        });
-    });
-};
-
-const insertarEquipoTemporadaCategoria = (req, res) => {
-    const { id_categoria, id_edicion, id_zona, id_equipo, vacante } = req.body;
-
-    const insertQuery = `
-        INSERT INTO temporadas (id_categoria, id_edicion, id_zona, id_equipo, vacante)
-        VALUES (?, ?, NULL, ?, NULL)
-    `;
-
-    const queryParams = [id_categoria, id_edicion, id_equipo];
-
-    db.query(insertQuery, queryParams, (err, result) => {
-        if (err) {
-            console.error("Error al insertar en categorias:", err);
-            return res.status(500).json({ mensaje: 'Error interno al insertar en categorias' });
+        if (tipoZona === 'eliminacion-directa' || tipoZona === 'eliminacion-directa-ida-vuelta') {
+            await dbQuery('CALL sp_agregar_vacante_zona(?, ?, ?, ?)', [id_zona, id_equipo, vacante, id_partido]);
+            return res.status(200).json({ mensaje: 'Edición registrada o actualizada con éxito, y procedimiento ejecutado' });
+        } else {
+            return res.status(200).json({ mensaje: 'Edición registrada o actualizada con éxito' });
         }
 
-        console.log("Registro insertado en categorias con éxito:", result);
-        return res.status(200).json({ mensaje: 'Registro insertado en categorias con éxito' });
-    });
+    } catch (err) {
+        console.error("Error:", err);
+        res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
 };
 
-const eliminarEquipoTemporada = (req, res) => {
+const insertarEquipoTemporadaCategoria = async (req, res) => {
+    const { id_categoria, id_edicion, id_equipo } = req.body;
+
+    try {
+        await dbQuery(`
+            INSERT INTO temporadas (id_categoria, id_edicion, id_zona, id_equipo, vacante)
+            VALUES (?, ?, NULL, ?, NULL)
+        `, [id_categoria, id_edicion, id_equipo]);
+
+        res.status(200).json({ mensaje: 'Registro insertado en categorias con éxito' });
+    } catch (err) {
+        console.error("Error al insertar en categorias:", err);
+        res.status(500).json({ mensaje: 'Error interno al insertar en categorias' });
+    }
+};
+
+const eliminarEquipoTemporada = async (req, res) => {
     const { id_equipo, id_categoria, id_edicion } = req.body;
-    
-    // Sentencia SQL para eliminar el año por ID
-    const sql = 'UPDATE temporadas SET id_equipo = NULL WHERE id_equipo = ? AND id_categoria = ? AND id_edicion = ?';
 
-    db.query(sql, [id_equipo, id_categoria, id_edicion], (err, result) => {
-        if (err) {
-            console.error('Error eliminando la edicion:', err);
-            return res.status(500).send('Error eliminando la edicion');
-        }
-        res.status(200).send('Edicion eliminada correctamente');
-    });
+    try {
+        await dbQuery('UPDATE temporadas SET id_equipo = NULL WHERE id_equipo = ? AND id_categoria = ? AND id_edicion = ?', [id_equipo, id_categoria, id_edicion]);
+        res.status(200).send('Edición eliminada correctamente');
+    } catch (err) {
+        console.error('Error eliminando la edición:', err);
+        res.status(500).send('Error interno del servidor');
+    }
 };
 
-const determinarVentaja = (req, res) => {
+const determinarVentaja = async (req, res) => {
     const { id_zona, vacante } = req.body;
 
-    const query = `
-        SELECT t.ventaja
-        FROM temporadas t
-        JOIN zonas z ON t.id_zona = z.id_zona
-        WHERE t.id_zona = ?
-        AND t.vacante = ?
-        AND z.tipo_zona = 'eliminacion-directa';
-    `
-    db.query(query, [id_zona, vacante], (err, result) => {
-        if (err) {
-            console.error('Error al obtener la ventaja:', err);
-            return res.status(500).send('Error interno del servidor');
-        }
-        return res.status(200).json(result[0]);
-    })
-}
+    try {
+        const result = await dbQuery(`
+            SELECT t.ventaja
+            FROM temporadas t
+            JOIN zonas z ON t.id_zona = z.id_zona
+            WHERE t.id_zona = ? AND t.vacante = ? AND z.tipo_zona = 'eliminacion-directa'
+        `, [id_zona, vacante]);
+
+        res.status(200).json(result);
+    } catch (err) {
+        console.error('Error al obtener la ventaja:', err);
+        res.status(500).send('Error interno del servidor');
+    }
+};
 
 module.exports = {
     getPosicionesTemporada,

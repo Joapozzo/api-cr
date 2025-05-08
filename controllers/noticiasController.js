@@ -1,4 +1,4 @@
-const db = require("../utils/db");
+const { query } = require("../utils/db");
 
 //! INSERTAR EN TABLA NOTICIAS-CATEGORIAS TAMBIEN
 const createNoticia = async (req, res) => {
@@ -24,39 +24,22 @@ const createNoticia = async (req, res) => {
     const sqlNoticia = `INSERT INTO noticias (titulo, contenido, img) VALUES (?, ?, ?)`;
     const noticiaValues = [title, content, img];
 
-    db.query(sqlNoticia, noticiaValues, (err, result) => {
-      if (err) {
-        console.error("Error al insertar noticia:", err.message);
-        return res.status(500).json({
-          mensaje:
-            "Ocurrió un error al insertar la noticia. Intente nuevamente más tarde.",
-        });
-      }
+    const result = await query(sqlNoticia, noticiaValues);
+    const noticiaId = result.insertId; // ID de la noticia creada
 
-      const noticiaId = result.insertId; // ID de la noticia creada
+    // Insertar las categorías relacionadas
+    const sqlCategorias = `INSERT INTO noticias_categorias (id_noticia, id_categoria) VALUES ?`;
+    const categoriaValues = categorias.map((categoriaId) => [
+      noticiaId,
+      categoriaId,
+    ]);
 
-      // Insertar las categorías relacionadas
-      const sqlCategorias = `INSERT INTO noticias_categorias (id_noticia, id_categoria) VALUES ?`;
-      const categoriaValues = categorias.map((categoriaId) => [
-        noticiaId,
-        categoriaId,
-      ]);
+    await query(sqlCategorias, [categoriaValues]);
 
-      db.query(sqlCategorias, [categoriaValues], (err) => {
-        if (err) {
-          console.error("Error al insertar categorías:", err.message);
-          return res.status(500).json({
-            mensaje:
-              "Ocurrió un error al asociar las categorías. Intente nuevamente más tarde.",
-          });
-        }
-
-        // Respuesta exitosa
-        return res.status(201).json({
-          mensaje: "Noticia creada exitosamente y categorías asociadas.",
-          noticiaId: noticiaId,
-        });
-      });
+    // Respuesta exitosa
+    return res.status(201).json({
+      mensaje: "Noticia creada exitosamente y categorías asociadas.",
+      noticiaId: noticiaId,
     });
   } catch (error) {
     console.error("Error en el servidor:", error);
@@ -91,13 +74,13 @@ const getNoticias = async (req, res) => {
     ORDER BY 
         n.fecha_creacion DESC;
     `;
-  db.query(sql, (err, result) => {
-    if (err) {
-      console.error("Error obteniendo las noticias:", err);
-      return res.status(500).send("Error obteniendo las noticias");
-    }
+  try {
+    const result = await query(sql);
     return res.status(200).json(result);
-  });
+  } catch (error) {
+    res.status(500).send("Error obteniendo las noticias");
+    console.error("Error obteniendo las noticias:", error);
+  }
 };
 
 const getNoticiasId = async (req, res) => {
@@ -128,49 +111,41 @@ const getNoticiasId = async (req, res) => {
     ORDER BY 
         n.fecha_creacion DESC;
     `;
-  db.query(sql, [id_noticia], (err, result) => {
-    if (err) {
-      console.error("Error obteniendo las noticias:", err);
-      return res.status(500).send("Error obteniendo las noticias");
+  try {
+    if (!id_noticia) {
+      return res.status(400).json({ mensaje: "Falta el id de la noticia" });
     }
+    const result = await query(sql, [id_noticia]);
     return res.status(200).json(result);
-  });
+  } catch (error) {
+    res.status(500).send("Error obteniendo las noticias");
+    console.error("Error obteniendo las noticias:", error);
+  }
 };
 
 const eliminarNoticia = async (req, res) => {
   const { id_noticia: idNoticia } = req.query;
-  const sql = `
-        DELETE FROM noticias
-        WHERE id_noticia = ?
-    `;
+  const sql = `DELETE FROM noticias WHERE id_noticia = ?`;
 
-    if (!idNoticia) {
-        return res.status(400).json({ mensaje: "Falta el id de la noticia" });
-    }
-    console.log(idNoticia);
-    
-  db.query(sql, [idNoticia], (err, result) => {
-    if (err) {
-      console.error("Error eliminando la noticia:", err);
-      return res.status(500).json({ mensaje: "Error eliminando la noticia" });
-    }
-    db.query(
-      `
-            DELETE FROM noticias_categorias
-            WHERE id_noticia = ?
-        `,
-      [idNoticia],
-      (err, result) => {
-        if (err) {
-          console.error("Error eliminando las categorías de la noticia:", err);
-          return res
-            .status(500)
-            .json({ mensaje: "Error eliminando las categorías de la noticia" });
-        }
-      }
+  if (!idNoticia) {
+    return res.status(400).json({ mensaje: "Falta el id de la noticia" });
+  }
+
+  console.log(idNoticia);
+
+  try {
+    await query(sql, [idNoticia]);
+
+    await query(
+      `DELETE FROM noticias_categorias WHERE id_noticia = ?`,
+      [idNoticia]
     );
+
     return res.status(200).json({ mensaje: "Noticia eliminada correctamente" });
-  });
+  } catch (err) {
+    console.error("Error eliminando la noticia:", err);
+    return res.status(500).json({ mensaje: "Error eliminando la noticia" });
+  }
 };
 
 const updateNoticia = async (req, res) => {
@@ -186,19 +161,19 @@ const updateNoticia = async (req, res) => {
     return res.status(400).json({ mensaje: "Falta algún dato" });
   }
 
-  db.query(sql, [title, content, img, id_noticia], (err, result) => {
-    if (err) {
-      console.error("Error actualizando la noticia:", err);
-      return res.status(500).json({ mensaje: "Error actualizando la noticia" });
-    }
+  try {
+    await query(sql, [title, content, img, id_noticia]);
     return res.status(200).json({ mensaje: "Noticia actualizada correctamente" });
-  });
-}
+  } catch (err) {
+    console.error("Error actualizando la noticia:", err);
+    return res.status(500).json({ mensaje: "Error actualizando la noticia" });
+  }
+};
 
 module.exports = {
   createNoticia,
   getNoticias,
   getNoticiasId,
   eliminarNoticia,
-  updateNoticia
+  updateNoticia,
 };

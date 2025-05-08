@@ -1,6 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const uploadController = require("../controllers/uploadController");
+const { revisarToken, revisarAdmin } = require('../middlewares/auth');
 const path = require("path");
 
 const router = express.Router();
@@ -25,8 +26,8 @@ const upload = multer({
   }
 });
 
-
-router.post("/", upload.single("image"), uploadController.uploadImage);
+router.post("/", revisarToken, revisarAdmin, upload.single("image"), uploadController.uploadImage);
+router.delete("/", revisarToken, revisarAdmin, uploadController.deleteImage);
 
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
