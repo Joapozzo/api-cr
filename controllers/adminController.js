@@ -506,7 +506,7 @@ const updatePartido = async (req, res) => {
 };
 
 const crearExpulsion = async (req, res) => {
-  const { id_jugador, id_equipo, id_edicion, id_categoria } = req.body;
+  const { id_jugador, id_equipo, id_edicion, id_categoria, motivo } = req.body;
 
   try {
     const result = await query(
@@ -526,7 +526,7 @@ const crearExpulsion = async (req, res) => {
       return res.status(400).json({ mensaje: "El jugador ya tiene una expulsión activa en la categoría" });
     }
 
-    await query(`CALL sp_crear_expulsion(?, ?, ?, ?)`, [id_jugador, id_equipo, id_edicion, id_categoria]);
+    await query(`CALL sp_crear_expulsion(?, ?, ?, ?, ?)`, [id_jugador, id_equipo, id_edicion, id_categoria, motivo]);
     res.status(201).json({ mensaje: "Expulsión creada con éxito" });
 
   } catch (err) {
