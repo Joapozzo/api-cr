@@ -93,4 +93,7 @@ router.put('/eliminar-jugador-dt', revisarToken, revisarAdmin, jugadoresControll
 router.put('/resetear-jugadores-destacados', jugadoresController.resetearPosicionesYDT)
 router.put('/actualizar-jugadores-destacados', jugadoresController.actualizarJugadorDestacado)
 
+router.put('/update-jugador', revisarToken, revisarAdmin, logMiddleware, jugadoresController.updateJugador);
+
+
 module.exports = router;

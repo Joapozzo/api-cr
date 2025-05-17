@@ -10,7 +10,6 @@ const categoriasController = require('../controllers/categoriasController')
 const plantelesController = require('../controllers/plantelesController')
 const perfilController = require('../controllers/perfilController');
 const zonasController = require('../controllers/zonasController');
-const planilleroController = require('../controllers/planilleroController')
 const mailerContacto = require('../utils/mailer-contacto');
 const { revisarToken, revisarPlanillero } = require('../middlewares/auth');
 
@@ -38,13 +37,6 @@ router.get('/get-estadistica-categoria', temporadasController.getEstadisticasCat
 router.get('/get-jugadores-equipo', equiposController.getJugadoresEquipo);
 // router.get('/get-novedades', perfilController.getNovedades)
 router.get('/get-estadisticas-equipo-categoria', equiposController.getParticipacionesEquipo)
-
-//router.post('/crear-jugador', userController.crearJugador);
-
-// Jugadores
-router.post('/delete-jugador', jugadoresController.deleteJugador);
-router.put('/update-jugador', jugadoresController.updateJugador);
-router.post('/importar-jugadores', jugadoresController.importarJugadores);
 
 router.get('/get-jugadores', jugadoresController.getJugadores);
 router.get('/verificar-jugador', jugadoresController.verificarJugadorEventual)
