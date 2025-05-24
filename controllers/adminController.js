@@ -606,7 +606,7 @@ const actualizarExpulsion = async (req, res) => {
     const { id_partido, id_jugador } = result[0];
 
     if (fechas_restantes === 0) {
-      const [catResult] = await query(
+      const catResult = await query(
         `
         SELECT id_categoria
         FROM partidos
